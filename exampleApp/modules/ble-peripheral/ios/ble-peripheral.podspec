@@ -1,5 +1,5 @@
 require 'json'
-package = JSON.parse(File.read(File.join(__dir__, 'package.json')))
+package = JSON.parse(File.read(File.join(__dir__, '..', 'package.json')))
 
 Pod::Spec.new do |s|
   s.name           = 'ble-peripheral'
@@ -10,7 +10,7 @@ Pod::Spec.new do |s|
   s.author         = 'dev'
   s.platforms      = { ios: '15.1' }
   s.source         = { git: '' }
-  s.source_files   = 'ios/**/*.{swift}'
+  s.source_files   = '*.{swift}'
   s.dependency 'ExpoModulesCore'
   s.pod_target_xcconfig = {
     'DEFINES_MODULE' => 'YES',
