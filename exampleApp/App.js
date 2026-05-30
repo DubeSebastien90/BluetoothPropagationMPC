@@ -18,23 +18,40 @@ const bleManager = new BleManager();
 
 // ─── Permissions ──────────────────────────────────────────────────────────────
 async function requestAndroidPermissions() {
-  const results = await PermissionsAndroid.requestMultiple([
-    PermissionsAndroid.PERMISSIONS.BLUETOOTH_SCAN,
-    PermissionsAndroid.PERMISSIONS.BLUETOOTH_ADVERTISE,
-    PermissionsAndroid.PERMISSIONS.BLUETOOTH_CONNECT,
-    PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
-  ]);
-  return Object.values(results).every(r => r === PermissionsAndroid.RESULTS.GRANTED);
+  if (Platform.Version >= 31) {
+    // Android 12+ — Bluetooth requires explicit runtime permissions
+    const results = await PermissionsAndroid.requestMultiple([
+      PermissionsAndroid.PERMISSIONS.BLUETOOTH_SCAN,
+      PermissionsAndroid.PERMISSIONS.BLUETOOTH_ADVERTISE,
+      PermissionsAndroid.PERMISSIONS.BLUETOOTH_CONNECT,
+      PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+    ]);
+    return Object.values(results).every(r => r === PermissionsAndroid.RESULTS.GRANTED);
+  } else {
+    // Android 11 and below — Bluetooth is auto-granted at install, only Location is runtime
+    const result = await PermissionsAndroid.request(
+      PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION
+    );
+    return result === PermissionsAndroid.RESULTS.GRANTED;
+  }
 }
 
 // ─── App ──────────────────────────────────────────────────────────────────────
 export default function App() {
-  const [pong, setPong]       = useState(null);   // null | "PONG from <id>"
-  const [advertising, setAdv] = useState(false);
-  const [scanning, setScanning] = useState(false);
-  const connecting            = useRef(new Set()); // device IDs in-flight
-  const pongTimer             = useRef(null);
-  const advTimer              = useRef(null);
+  const [pong, setPong]         = useState(null);   // null | "PONG from <id>"
+  const [advertising, setAdv]   = useState(false);
+  const [scanning, setScanning]  = useState(false);
+  const [error, setError]        = useState(null);   // null | string
+  const connecting               = useRef(new Set()); // device IDs in-flight
+  const pongTimer                = useRef(null);
+  const advTimer                 = useRef(null);
+  const errorTimer               = useRef(null);
+
+  function showError(msg) {
+    setError(msg);
+    clearTimeout(errorTimer.current);
+    errorTimer.current = setTimeout(() => setError(null), 5000);
+  }
 
   // ── Start BLE central (scanning) once BT is on ────────────────────────────
   useEffect(() => {
@@ -42,6 +59,11 @@ export default function App() {
       if (state === 'PoweredOn') {
         sub.remove();
         initPermissionsAndScan();
+      } else if (state === 'PoweredOff') {
+        setScanning(false);
+        showError('Bluetooth is off — turn it on to use this app');
+      } else if (state === 'Unauthorized') {
+        showError('Bluetooth permission denied');
       }
     }, true);
     return () => {
@@ -73,7 +95,8 @@ export default function App() {
       [SERVICE_UUID],
       { allowDuplicates: true },
       (error, device) => {
-        if (error || !device) return;
+        if (error) { showError(`Scan error: ${error.message}`); return; }
+        if (!device) return;
         connectAndPing(device);
       }
     );
@@ -90,8 +113,12 @@ export default function App() {
       );
       showPong(device.id);
       await connected.cancelConnection();
-    } catch {
-      // timeout / already connecting / device went away — ignore
+    } catch (e) {
+      const msg = e?.message ?? String(e);
+      // "already connected" and "operation cancelled" are expected noise — skip them
+      if (!msg.includes('already') && !msg.includes('cancelled')) {
+        showError(`Connect failed (${device.id.slice(-5)}): ${msg}`);
+      }
     } finally {
       connecting.current.delete(device.id);
     }
@@ -116,7 +143,7 @@ export default function App() {
         setAdv(false);
       }, ADV_TIMEOUT);
     } catch (e) {
-      Alert.alert('BLE Peripheral error', e?.message ?? String(e));
+      showError(`PING failed: ${e?.message ?? String(e)}`);
       setAdv(false);
     }
   }
@@ -141,6 +168,8 @@ export default function App() {
       <Text style={styles.status}>
         {scanning ? '📡 scanning' : '⏳ waiting for BT'}
       </Text>
+
+      {error && <Text style={styles.error}>{error}</Text>}
 
       <StatusBar style="light" />
     </View>
@@ -184,5 +213,11 @@ const styles = StyleSheet.create({
   status: {
     color: '#555',
     fontSize: 13,
+  },
+  error: {
+    color: '#ff5252',
+    fontSize: 13,
+    textAlign: 'center',
+    paddingHorizontal: 24,
   },
 });
