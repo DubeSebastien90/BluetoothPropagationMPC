@@ -4,18 +4,19 @@ import CoreBluetooth
 private let kServiceUUID = CBUUID(string: "12345678-1234-1234-1234-123456789abc")
 private let kCharUUID    = CBUUID(string: "abcdefab-1234-1234-1234-abcdefabcdef")
 
-// ─── Expo Module ──────────────────────────────────────────────────────────────
-// AsyncFunction handles (String, Promise) natively — no ObjC interop bug.
-
 public class BlePeripheralModule: Module {
     private let ble = BlePeripheralDelegate()
 
     public func definition() -> ModuleDefinition {
         Name("BlePeripheral")
 
-        // Atomic: message and start in one call
-        AsyncFunction("startPeripheral") { (message: String, promise: Promise) in
-            self.ble.start(message: message, promise: promise)
+        Events("onPacketReceived")
+
+        AsyncFunction("startPeripheral") { (promise: Promise) in
+            self.ble.onPacketReceived = { [weak self] data in
+                self?.sendEvent("onPacketReceived", ["data": data])
+            }
+            self.ble.start(promise: promise)
         }
 
         AsyncFunction("stopPeripheral") { (promise: Promise) in
@@ -30,15 +31,12 @@ public class BlePeripheralModule: Module {
 private class BlePeripheralDelegate: NSObject, CBPeripheralManagerDelegate {
     private var manager:       CBPeripheralManager?
     private var pendingPromise: Promise?
-    private var pendingMessage = ""
+    var onPacketReceived: ((String) -> Void)?
 
-    func start(message: String, promise: Promise) {
-        pendingMessage = message
+    func start(promise: Promise) {
         pendingPromise = promise
-
         if manager == nil {
             manager = CBPeripheralManager(delegate: self, queue: nil)
-            // peripheralManagerDidUpdateState fires when ready
         } else if manager?.state == .poweredOn {
             setup()
         } else {
@@ -50,20 +48,17 @@ private class BlePeripheralDelegate: NSObject, CBPeripheralManagerDelegate {
     func stop() {
         manager?.stopAdvertising()
         manager?.removeAllServices()
-        pendingMessage = ""
     }
-
-    // ── State machine ─────────────────────────────────────────────────────────
 
     private func setup() {
         manager?.removeAllServices()
 
-        // Static value — CoreBluetooth answers reads automatically, no delegate needed
+        // Write characteristic — centrals write packets to us
         let char = CBMutableCharacteristic(
             type: kCharUUID,
-            properties: .read,
-            value: pendingMessage.data(using: .utf8),
-            permissions: .readable
+            properties: [.write, .writeWithoutResponse],
+            value: nil,
+            permissions: .writeable
         )
         let service = CBMutableService(type: kServiceUUID, primary: true)
         service.characteristics = [char]
@@ -88,7 +83,7 @@ private class BlePeripheralDelegate: NSObject, CBPeripheralManagerDelegate {
         }
         peripheral.startAdvertising([
             CBAdvertisementDataServiceUUIDsKey: [service.uuid],
-            CBAdvertisementDataLocalNameKey: "MsgApp",
+            CBAdvertisementDataLocalNameKey: "MeshChat",
         ]) // → peripheralManagerDidStartAdvertising(_:error:)
     }
 
@@ -100,5 +95,16 @@ private class BlePeripheralDelegate: NSObject, CBPeripheralManagerDelegate {
             pendingPromise?.resolve()
         }
         pendingPromise = nil
+    }
+
+    // Central wrote a packet to our characteristic — emit to JS
+    func peripheralManager(_ peripheral: CBPeripheralManager,
+                           didReceiveWrite requests: [CBATTRequest]) {
+        for req in requests {
+            peripheral.respond(to: req, withResult: .success)
+            if let data = req.value, let str = String(data: data, encoding: .utf8) {
+                onPacketReceived?(str)
+            }
+        }
     }
 }

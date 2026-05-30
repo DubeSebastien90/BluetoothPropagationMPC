@@ -5,6 +5,7 @@ import android.bluetooth.le.*
 import android.content.Context
 import android.os.ParcelUuid
 import com.facebook.react.bridge.*
+import com.facebook.react.modules.core.DeviceEventManagerModule
 import java.util.UUID
 
 class BleGattServerModule(reactContext: ReactApplicationContext) :
@@ -21,16 +22,22 @@ class BleGattServerModule(reactContext: ReactApplicationContext) :
     private var advertiser:        BluetoothLeAdvertiser? = null
     private var advertiseCallback: AdvertiseCallback? = null
     private var startPromise:      Promise? = null
-    private var messageBytes:      ByteArray = ByteArray(0)
 
     private val gattCallback = object : BluetoothGattServerCallback() {
-        override fun onCharacteristicReadRequest(
+        override fun onCharacteristicWriteRequest(
             device: BluetoothDevice, requestId: Int,
-            offset: Int, characteristic: BluetoothGattCharacteristic
+            characteristic: BluetoothGattCharacteristic,
+            preparedWrite: Boolean, responseNeeded: Boolean,
+            offset: Int, value: ByteArray
         ) {
-            val data = if (offset < messageBytes.size) messageBytes.copyOfRange(offset, messageBytes.size)
-                       else ByteArray(0)
-            gattServer?.sendResponse(device, requestId, BluetoothGatt.GATT_SUCCESS, offset, data)
+            if (responseNeeded) {
+                gattServer?.sendResponse(device, requestId, BluetoothGatt.GATT_SUCCESS, 0, null)
+            }
+            // Emit packet to JS
+            val data = String(value, Charsets.UTF_8)
+            reactApplicationContext
+                .getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter::class.java)
+                .emit("onPacketReceived", data)
         }
 
         override fun onServiceAdded(status: Int, service: BluetoothGattService) {
@@ -44,7 +51,7 @@ class BleGattServerModule(reactContext: ReactApplicationContext) :
     }
 
     @ReactMethod
-    fun startPeripheral(message: String, promise: Promise) {
+    fun startPeripheral(promise: Promise) {
         try {
             val btManager = reactApplicationContext
                 .getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
@@ -61,17 +68,18 @@ class BleGattServerModule(reactContext: ReactApplicationContext) :
                 return
             }
 
-            messageBytes = message.toByteArray(Charsets.UTF_8)
-            startPromise  = promise
+            startPromise = promise
 
+            // Write characteristic — centrals write packets to us
             val characteristic = BluetoothGattCharacteristic(
                 CHAR_UUID,
-                BluetoothGattCharacteristic.PROPERTY_READ,
-                BluetoothGattCharacteristic.PERMISSION_READ
+                BluetoothGattCharacteristic.PROPERTY_WRITE or
+                BluetoothGattCharacteristic.PROPERTY_WRITE_NO_RESPONSE,
+                BluetoothGattCharacteristic.PERMISSION_WRITE
             )
             val service = BluetoothGattService(SERVICE_UUID, BluetoothGattService.SERVICE_TYPE_PRIMARY)
             service.addCharacteristic(characteristic)
-            gattServer!!.addService(service) // async → onServiceAdded → beginAdvertising → onStartSuccess
+            gattServer!!.addService(service) // async → onServiceAdded → beginAdvertising
         } catch (e: SecurityException) {
             startPromise = null
             promise.reject("PERMISSION_DENIED", e.message)
@@ -123,4 +131,8 @@ class BleGattServerModule(reactContext: ReactApplicationContext) :
         } catch (_: Exception) {}
         promise.resolve(null)
     }
+
+    // Required by RN event emitter — no-op but must be present
+    @ReactMethod fun addListener(eventName: String) {}
+    @ReactMethod fun removeListeners(count: Int) {}
 }
