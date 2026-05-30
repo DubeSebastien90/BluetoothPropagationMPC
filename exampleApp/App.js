@@ -1,432 +1,308 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
-  View, Text, TextInput, TouchableOpacity, StyleSheet,
-  PermissionsAndroid, Platform, Alert, NativeModules,
-  KeyboardAvoidingView, Modal,
+  View, Text, TextInput, TouchableOpacity,
+  FlatList, StyleSheet, Alert, Platform,
+  KeyboardAvoidingView, SafeAreaView,
 } from 'react-native';
-import { BleManager } from 'react-native-ble-plx';
 import { StatusBar } from 'expo-status-bar';
-import { requireNativeModule } from 'expo-modules-core';
-import QRCode from 'react-native-qrcode-svg';
+import { BleManager }  from './src/ble/BleManager';
+import { MeshRouter }  from './src/mesh/MeshRouter';
+import { NullCrypto }  from './src/mocks/NullCrypto';
 
-// ─── Constants ────────────────────────────────────────────────────────────────
-const SERVICE_UUID = '12345678-1234-1234-1234-123456789ABC';
-const CHAR_UUID    = 'ABCDEFAB-1234-1234-1234-ABCDEFABCDEF';
-const ADV_TIMEOUT  = 10_000;
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
-// iOS: Expo Module (Swift, new arch native)
-// Android: legacy bridge module (Kotlin, works fine with new arch interop)
-const BlePeripheral = Platform.OS === 'ios'
-  ? requireNativeModule('BlePeripheral')
-  : NativeModules.BlePeripheral;
-
-const bleManager = new BleManager();
-
-// ─── Permissions ──────────────────────────────────────────────────────────────
-async function requestAndroidPermissions() {
-  if (Platform.Version >= 31) {
-    const results = await PermissionsAndroid.requestMultiple([
-      PermissionsAndroid.PERMISSIONS.BLUETOOTH_SCAN,
-      PermissionsAndroid.PERMISSIONS.BLUETOOTH_ADVERTISE,
-      PermissionsAndroid.PERMISSIONS.BLUETOOTH_CONNECT,
-      PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
-    ]);
-    return Object.values(results).every(r => r === PermissionsAndroid.RESULTS.GRANTED);
-  } else {
-    const result = await PermissionsAndroid.request(
-      PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION
-    );
-    return result === PermissionsAndroid.RESULTS.GRANTED;
-  }
+// Derive a stable test pubkey from nickname — good enough for e2e testing
+function testPubkey(nickname) {
+  return nickname.toLowerCase().replace(/\s+/g, '-') + '-test-pubkey';
 }
 
-// ─── App ──────────────────────────────────────────────────────────────────────
-export default function App() {
-  const [message, setMessage]         = useState('');        // text input value
-  const [received, setReceived]       = useState(null);      // received message to display
-  const [sending, setSending]         = useState(false);     // advertising in progress
-  const [scanning, setScanning]       = useState(false);
-  const [error, setError]             = useState(null);
-  const [qrVisible, setQrVisible]     = useState(false);
-  const [qrInput, setQrInput]         = useState('');
-  const [qrValue, setQrValue]         = useState(null);
-  const connecting                    = useRef(new Set());
-  const receivedTimer                 = useRef(null);
-  const advTimer                      = useRef(null);
-  const errorTimer                    = useRef(null);
+// ─── Setup screen ─────────────────────────────────────────────────────────────
 
-  function showError(msg) {
-    setError(msg);
-    clearTimeout(errorTimer.current);
-    errorTimer.current = setTimeout(() => setError(null), 5000);
-  }
-
-  function showReceived(text, fromId) {
-    const short = fromId.slice(-5).toUpperCase();
-    setReceived({ text, from: `…${short}` });
-    clearTimeout(receivedTimer.current);
-    receivedTimer.current = setTimeout(() => setReceived(null), 6000);
-  }
-
-  // ── BLE state + permissions + scan ────────────────────────────────────────
-  useEffect(() => {
-    const sub = bleManager.onStateChange(state => {
-      if (state === 'PoweredOn') {
-        sub.remove();
-        initPermissionsAndScan();
-      } else if (state === 'PoweredOff') {
-        setScanning(false);
-        showError('Bluetooth is off — turn it on to use this app');
-      } else if (state === 'Unauthorized') {
-        showError('Bluetooth permission denied');
-      }
-    }, true);
-    return () => {
-      sub.remove();
-      bleManager.stopDeviceScan();
-      bleManager.destroy();
-      BlePeripheral?.stopPeripheral?.().catch(() => {});
-    };
-  }, []);
-
-  async function initPermissionsAndScan() {
-    if (Platform.OS === 'android') {
-      const granted = await requestAndroidPermissions();
-      if (!granted) {
-        Alert.alert('Permissions required', 'Grant Bluetooth and Location permissions then restart the app.');
-        return;
-      }
-    }
-    startScanning();
-  }
-
-  // ── Central: scan → connect → READ message → display ─────────────────────
-  const startScanning = useCallback(() => {
-    setScanning(true);
-    bleManager.startDeviceScan(
-      [SERVICE_UUID],
-      { allowDuplicates: true },
-      (err, device) => {
-        if (err) { showError(`Scan error: ${err.message}`); return; }
-        if (!device) return;
-        connectAndRead(device);
-      }
-    );
-  }, []);
-
-  async function connectAndRead(device) {
-    if (connecting.current.has(device.id)) return;
-    connecting.current.add(device.id);
-    try {
-      const connected = await device.connect({ timeout: 5000 });
-      await connected.discoverAllServicesAndCharacteristics();
-      const char = await connected.readCharacteristicForService(SERVICE_UUID, CHAR_UUID);
-      const text = atob(char.value);   // decode base64 → original message string
-      showReceived(text, device.id);
-      await connected.cancelConnection();
-    } catch (e) {
-      const msg = e?.message ?? String(e);
-      if (!msg.includes('already') && !msg.includes('cancelled')) {
-        showError(`Connect failed (${device.id.slice(-5)}): ${msg}`);
-      }
-    } finally {
-      connecting.current.delete(device.id);
-    }
-  }
-
-  // ── Peripheral: load message into readable characteristic + advertise ──────
-  async function handleSend() {
-    const text = message.trim();
-    if (!text || sending) return;
-    setSending(true);
-    try {
-      await BlePeripheral.startPeripheral(text);   // atomic: message + start in one call
-      advTimer.current = setTimeout(async () => {
-        await BlePeripheral.stopPeripheral();
-        setSending(false);
-      }, ADV_TIMEOUT);
-    } catch (e) {
-      showError(`Send failed: ${e?.message ?? String(e)}`);
-      setSending(false);
-    }
-  }
-
-  // ─── UI ───────────────────────────────────────────────────────────────────
+function SetupScreen({ onConfirm }) {
+  const [nickname, setNickname] = useState('');
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-    >
-      <StatusBar style="light" />
-
-      {/* App bar */}
-      <View style={styles.appBar}>
-        <Text style={styles.appBarTitle}>BLE Messenger</Text>
-        <TouchableOpacity
-          style={styles.qrButton}
-          onPress={() => { setQrInput(''); setQrValue(null); setQrVisible(true); }}
-          activeOpacity={0.75}
-        >
-          <Text style={styles.qrButtonText}>QR</Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* QR code modal */}
-      <Modal
-        visible={qrVisible}
-        animationType="slide"
-        onRequestClose={() => setQrVisible(false)}
-      >
-        <View style={styles.qrModal}>
-          <StatusBar style="light" />
-
-          {/* Modal header */}
-          <View style={styles.qrModalHeader}>
-            <TouchableOpacity onPress={() => setQrVisible(false)} activeOpacity={0.75}>
-              <Text style={styles.qrBackText}>← Back</Text>
-            </TouchableOpacity>
-            <Text style={styles.qrModalTitle}>Generate QR Code</Text>
-            <View style={{ width: 60 }} />
-          </View>
-
-          {/* Input */}
-          <TextInput
-            style={styles.qrInput}
-            value={qrInput}
-            onChangeText={setQrInput}
-            placeholder="Enter text or URL…"
-            placeholderTextColor="#444"
-            autoCapitalize="none"
-            autoCorrect={false}
-          />
-
-          {/* Generate button */}
-          <TouchableOpacity
-            style={[styles.button, !qrInput.trim() && styles.buttonDisabled]}
-            onPress={() => setQrValue(qrInput.trim())}
-            activeOpacity={0.75}
-            disabled={!qrInput.trim()}
-          >
-            <Text style={styles.buttonText}>GENERATE</Text>
-          </TouchableOpacity>
-
-          {/* QR code */}
-          {qrValue ? (
-            <View style={styles.qrCodeBox}>
-              <QRCode value={qrValue} size={220} backgroundColor="#fff" />
-            </View>
-          ) : (
-            <View style={styles.qrPlaceholder}>
-              <Text style={styles.qrPlaceholderText}>QR code will appear here</Text>
-            </View>
-          )}
-        </View>
-      </Modal>
-
-      {/* Received message */}
-      <View style={styles.receivedBox}>
-        {received ? (
-          <>
-            <Text style={styles.receivedText}>{received.text}</Text>
-            <Text style={styles.receivedFrom}>from {received.from}</Text>
-          </>
-        ) : (
-          <Text style={styles.receivedPlaceholder}>waiting for messages…</Text>
-        )}
-      </View>
-
-      {/* Text input */}
+    <View style={s.center}>
+      <Text style={s.title}>Mesh Chat</Text>
+      <Text style={s.subtitle}>Test Harness — Feature A + B</Text>
       <TextInput
-        style={styles.input}
-        value={message}
-        onChangeText={setMessage}
-        placeholder="Type a message…"
-        placeholderTextColor="#444"
-        returnKeyType="send"
-        onSubmitEditing={handleSend}
-        editable={!sending}
+        style={s.input}
+        value={nickname}
+        onChangeText={setNickname}
+        placeholder="Your nickname (e.g. alice)..."
+        placeholderTextColor="#555"
+        autoCapitalize="none"
+        autoCorrect={false}
       />
-
-      {/* Send button */}
       <TouchableOpacity
-        style={[styles.button, (sending || !message.trim()) && styles.buttonDisabled]}
-        onPress={handleSend}
-        activeOpacity={0.75}
-        disabled={sending || !message.trim()}
+        style={[s.btn, !nickname.trim() && s.btnDisabled]}
+        onPress={() => nickname.trim() && onConfirm(nickname.trim())}
+        disabled={!nickname.trim()}
       >
-        <Text style={styles.buttonText}>
-          {sending ? 'SENDING…' : 'SEND'}
-        </Text>
+        <Text style={s.btnText}>Start</Text>
       </TouchableOpacity>
-
-      {/* Status + errors */}
-      <Text style={styles.status}>
-        {scanning ? '📡 scanning' : '⏳ waiting for BT'}
+      <Text style={s.hint}>
+        Use different nicknames on each phone.{'\n'}
+        Each nickname gets a unique test identity.
       </Text>
-      {error && <Text style={styles.error}>{error}</Text>}
-    </KeyboardAvoidingView>
+    </View>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#0a0a1a',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 24,
-    paddingHorizontal: 24,
+// ─── Main test screen ─────────────────────────────────────────────────────────
+
+function TestScreen({ identity }) {
+  const [peers, setPeers]       = useState([]);
+  const [messages, setMessages] = useState([]);
+  const [input, setInput]       = useState('');
+  const [status, setStatus]     = useState('starting...');
+  const routerRef               = useRef(null);
+
+  useEffect(() => {
+    const crypto = new NullCrypto();
+
+    const meshRouter = new MeshRouter(
+      identity,
+      null,
+      crypto,
+      (msg) => {
+        console.log('[ROUTER] message for me:', msg);
+        setMessages(prev => [msg, ...prev]);
+      }
+    );
+
+    const transport = new BleManager({
+      onPacketReceived: (packet, fromId) => {
+        console.log('[BLE] packet received from', fromId, packet);
+        meshRouter._handleIncoming(packet, fromId);
+      },
+      onPeerConnected: (deviceId, name) => {
+        console.log('[BLE] peer connected:', name, deviceId);
+        setPeers(prev => {
+          if (prev.find(p => p.deviceId === deviceId)) return prev;
+          return [...prev, { deviceId, name }];
+        });
+        setStatus(`${peers.length + 1} peer(s) connected`);
+      },
+      onPeerDisconnected: (deviceId) => {
+        console.log('[BLE] peer disconnected:', deviceId);
+        setPeers(prev => prev.filter(p => p.deviceId !== deviceId));
+      },
+    });
+
+    meshRouter.transport = transport;
+    routerRef.current = meshRouter;
+    meshRouter.start();
+
+    transport.start()
+      .then(() => setStatus('scanning...'))
+      .catch(e => {
+        console.error('[BLE] start failed:', e);
+        setStatus('BLE error: ' + e.message);
+        Alert.alert('BLE Error', e.message);
+      });
+
+    return () => { transport.stop(); };
+  }, []);
+
+  const sendBroadcast = () => {
+    if (!routerRef.current) return;
+    const body = input.trim() || `hi from ${identity.nickname}`;
+    console.log('[UI] sending broadcast:', body);
+    routerRef.current.send('all', 'all', body);
+    setMessages(prev => [{
+      id:     Date.now().toString(),
+      from:   identity.nickname,
+      fromId: identity.pubkey,
+      to:     'all',
+      toId:   'all',
+      body,
+      ts:     Date.now(),
+      _mine:  true,
+    }, ...prev]);
+    setInput('');
+  };
+
+  const sendToPeer = (peer) => {
+    if (!routerRef.current) return;
+    const body = input.trim() || `hi from ${identity.nickname}`;
+    const toId = testPubkey(peer.name);
+    console.log('[UI] sending direct to', peer.name, toId, ':', body);
+    routerRef.current.send(peer.name, toId, body);
+    setMessages(prev => [{
+      id:     Date.now().toString(),
+      from:   identity.nickname,
+      fromId: identity.pubkey,
+      to:     peer.name,
+      toId,
+      body,
+      ts:     Date.now(),
+      _mine:  true,
+    }, ...prev]);
+    setInput('');
+  };
+
+  return (
+    <SafeAreaView style={s.container}>
+      <StatusBar style="light" />
+
+      {/* Header */}
+      <View style={s.header}>
+        <Text style={s.headerName}>{identity.nickname}</Text>
+        <Text style={s.headerId} numberOfLines={1}>
+          id: {identity.pubkey}
+        </Text>
+        <Text style={s.headerStatus}>
+          {peers.length === 0
+            ? `📡 ${status}`
+            : `🔗 ${peers.length} peer${peers.length > 1 ? 's' : ''} connected`}
+        </Text>
+      </View>
+
+      {/* Peer list + direct send buttons */}
+      {peers.length > 0 && (
+        <View style={s.peerBar}>
+          {peers.map(p => (
+            <TouchableOpacity
+              key={p.deviceId}
+              style={s.peerBtn}
+              onPress={() => sendToPeer(p)}
+            >
+              <Text style={s.peerBtnText}>→ {p.name}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      )}
+
+      {/* Message list */}
+      <FlatList
+        style={s.messages}
+        data={messages}
+        keyExtractor={(m, i) => m.id ?? i.toString()}
+        renderItem={({ item }) => (
+          <View style={[s.bubble, item._mine ? s.mine : s.theirs]}>
+            <Text style={s.body}>{item.body}</Text>
+            <Text style={s.meta}>
+              {item.from} → {item.to} · {new Date(item.ts).toLocaleTimeString()}
+            </Text>
+          </View>
+        )}
+        ListEmptyComponent={
+          <Text style={s.empty}>
+            No messages yet.{'\n'}
+            Press Broadcast to send to all peers.{'\n'}
+            Tap a peer button to send directly.
+          </Text>
+        }
+      />
+
+      {/* Composer */}
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
+        <View style={s.composer}>
+          <TextInput
+            style={s.composerInput}
+            value={input}
+            onChangeText={setInput}
+            placeholder="Message (optional)..."
+            placeholderTextColor="#555"
+          />
+          <TouchableOpacity style={s.broadcastBtn} onPress={sendBroadcast}>
+            <Text style={s.broadcastBtnText}>Broadcast</Text>
+          </TouchableOpacity>
+        </View>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
+  );
+}
+
+// ─── Root ─────────────────────────────────────────────────────────────────────
+
+export default function App() {
+  const [identity, setIdentity] = useState(null);
+
+  if (!identity) {
+    return (
+      <SetupScreen
+        onConfirm={(nickname) =>
+          setIdentity({ nickname, pubkey: testPubkey(nickname) })
+        }
+      />
+    );
+  }
+
+  return <TestScreen identity={identity} />;
+}
+
+// ─── Styles ───────────────────────────────────────────────────────────────────
+
+const s = StyleSheet.create({
+  // Setup
+  center: {
+    flex: 1, backgroundColor: '#0a0a1a',
+    alignItems: 'center', justifyContent: 'center',
+    padding: 32, gap: 16,
   },
-  appBar: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingTop: Platform.OS === 'android' ? 40 : 50,
-    paddingBottom: 12,
-    backgroundColor: '#0a0a1a',
-    borderBottomWidth: 1,
-    borderBottomColor: '#1a1a2e',
-    zIndex: 10,
-  },
-  appBarTitle: {
-    color: '#fff',
-    fontSize: 17,
-    fontWeight: '600',
-  },
-  qrButton: {
-    backgroundColor: '#6200ee',
-    borderRadius: 8,
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-  },
-  qrButtonText: {
-    color: '#fff',
-    fontSize: 13,
-    fontWeight: 'bold',
-    letterSpacing: 1,
-  },
-  qrModal: {
-    flex: 1,
-    backgroundColor: '#0a0a1a',
-    alignItems: 'center',
-    gap: 24,
-    paddingHorizontal: 24,
-  },
-  qrModalHeader: {
-    width: '100%',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingTop: 16,
-  },
-  qrBackText: {
-    color: '#6200ee',
-    fontSize: 16,
-    fontWeight: '600',
-    width: 60,
-  },
-  qrModalTitle: {
-    color: '#fff',
-    fontSize: 17,
-    fontWeight: '600',
-  },
-  qrInput: {
-    width: '100%',
-    backgroundColor: '#111',
-    borderWidth: 1,
-    borderColor: '#333',
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    color: '#fff',
-    fontSize: 16,
-  },
-  qrCodeBox: {
-    marginTop: 8,
-    padding: 20,
-    backgroundColor: '#fff',
-    borderRadius: 16,
-  },
-  qrPlaceholder: {
-    marginTop: 8,
-    width: 260,
-    height: 260,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#222',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  qrPlaceholderText: {
-    color: '#333',
-    fontSize: 14,
-  },
-  receivedBox: {
-    width: '100%',
-    minHeight: 100,
-    backgroundColor: '#111',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#222',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 20,
-  },
-  receivedText: {
-    color: '#00e5ff',
-    fontSize: 28,
-    fontWeight: 'bold',
-    textAlign: 'center',
-  },
-  receivedFrom: {
-    color: '#555',
-    fontSize: 13,
-    marginTop: 8,
-  },
-  receivedPlaceholder: {
-    color: '#333',
-    fontSize: 14,
-  },
+  title:    { color: '#fff', fontSize: 28, fontWeight: 'bold' },
+  subtitle: { color: '#555', fontSize: 14 },
+  hint:     { color: '#333', fontSize: 12, textAlign: 'center', marginTop: 8 },
   input: {
-    width: '100%',
-    backgroundColor: '#111',
-    borderWidth: 1,
-    borderColor: '#333',
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    color: '#fff',
-    fontSize: 16,
+    width: '100%', backgroundColor: '#111', color: '#fff',
+    borderRadius: 10, padding: 14, fontSize: 16,
+    borderWidth: 1, borderColor: '#222',
   },
-  button: {
-    backgroundColor: '#6200ee',
-    paddingVertical: 18,
-    paddingHorizontal: 48,
-    borderRadius: 14,
-    minWidth: 180,
-    alignItems: 'center',
+  btn: {
+    backgroundColor: '#2563eb', borderRadius: 10,
+    padding: 14, width: '100%', alignItems: 'center',
   },
-  buttonDisabled: {
-    backgroundColor: '#2a2a2a',
+  btnDisabled: { backgroundColor: '#1a1a1a' },
+  btnText: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
+
+  // Main
+  container: { flex: 1, backgroundColor: '#0a0a1a' },
+  header: {
+    padding: 16, borderBottomWidth: 1, borderColor: '#1a1a1a',
   },
-  buttonText: {
-    color: '#fff',
-    fontSize: 20,
-    fontWeight: 'bold',
-    letterSpacing: 3,
+  headerName:   { color: '#fff', fontSize: 18, fontWeight: 'bold' },
+  headerId:     { color: '#333', fontSize: 10, marginTop: 2 },
+  headerStatus: { color: '#555', fontSize: 13, marginTop: 4 },
+
+  peerBar: {
+    flexDirection: 'row', flexWrap: 'wrap',
+    paddingHorizontal: 12, paddingVertical: 8,
+    gap: 8, borderBottomWidth: 1, borderColor: '#1a1a1a',
   },
-  status: {
-    color: '#555',
-    fontSize: 13,
+  peerBtn: {
+    backgroundColor: '#1a1a2e', borderRadius: 8,
+    paddingHorizontal: 12, paddingVertical: 6,
   },
-  error: {
-    color: '#ff5252',
-    fontSize: 13,
-    textAlign: 'center',
+  peerBtnText: { color: '#2563eb', fontSize: 13, fontWeight: '600' },
+
+  messages: { flex: 1, padding: 12 },
+  empty: {
+    color: '#333', textAlign: 'center',
+    marginTop: 60, lineHeight: 22,
   },
+  bubble: {
+    marginBottom: 10, padding: 10,
+    borderRadius: 12, maxWidth: '80%',
+  },
+  mine:   { backgroundColor: '#1e3a5f', alignSelf: 'flex-end' },
+  theirs: { backgroundColor: '#1a1a1a', alignSelf: 'flex-start' },
+  body:   { color: '#fff', fontSize: 15 },
+  meta:   { color: '#555', fontSize: 11, marginTop: 4 },
+
+  composer: {
+    flexDirection: 'row', padding: 12,
+    borderTopWidth: 1, borderColor: '#1a1a1a', gap: 8,
+  },
+  composerInput: {
+    flex: 1, backgroundColor: '#111', color: '#fff',
+    borderRadius: 8, padding: 10, fontSize: 14,
+  },
+  broadcastBtn: {
+    backgroundColor: '#2563eb', borderRadius: 8,
+    paddingHorizontal: 14, justifyContent: 'center',
+  },
+  broadcastBtnText: { color: '#fff', fontWeight: 'bold', fontSize: 13 },
 });
