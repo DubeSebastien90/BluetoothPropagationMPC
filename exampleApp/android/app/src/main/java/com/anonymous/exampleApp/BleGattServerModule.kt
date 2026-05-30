@@ -21,17 +21,16 @@ class BleGattServerModule(reactContext: ReactApplicationContext) :
     private var advertiser:        BluetoothLeAdvertiser? = null
     private var advertiseCallback: AdvertiseCallback? = null
     private var startPromise:      Promise? = null
+    private var messageBytes:      ByteArray = ByteArray(0)
 
     private val gattCallback = object : BluetoothGattServerCallback() {
-        override fun onCharacteristicWriteRequest(
+        override fun onCharacteristicReadRequest(
             device: BluetoothDevice, requestId: Int,
-            characteristic: BluetoothGattCharacteristic,
-            preparedWrite: Boolean, responseNeeded: Boolean,
-            offset: Int, value: ByteArray
+            offset: Int, characteristic: BluetoothGattCharacteristic
         ) {
-            if (responseNeeded) {
-                gattServer?.sendResponse(device, requestId, BluetoothGatt.GATT_SUCCESS, 0, null)
-            }
+            val data = if (offset < messageBytes.size) messageBytes.copyOfRange(offset, messageBytes.size)
+                       else ByteArray(0)
+            gattServer?.sendResponse(device, requestId, BluetoothGatt.GATT_SUCCESS, offset, data)
         }
 
         override fun onServiceAdded(status: Int, service: BluetoothGattService) {
@@ -45,7 +44,7 @@ class BleGattServerModule(reactContext: ReactApplicationContext) :
     }
 
     @ReactMethod
-    fun startPeripheral(promise: Promise) {
+    fun startPeripheral(message: String, promise: Promise) {
         try {
             val btManager = reactApplicationContext
                 .getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
@@ -62,13 +61,13 @@ class BleGattServerModule(reactContext: ReactApplicationContext) :
                 return
             }
 
-            startPromise = promise  // resolve later in onStartSuccess
+            messageBytes = message.toByteArray(Charsets.UTF_8)
+            startPromise  = promise
 
             val characteristic = BluetoothGattCharacteristic(
                 CHAR_UUID,
-                BluetoothGattCharacteristic.PROPERTY_WRITE or
-                BluetoothGattCharacteristic.PROPERTY_WRITE_NO_RESPONSE,
-                BluetoothGattCharacteristic.PERMISSION_WRITE
+                BluetoothGattCharacteristic.PROPERTY_READ,
+                BluetoothGattCharacteristic.PERMISSION_READ
             )
             val service = BluetoothGattService(SERVICE_UUID, BluetoothGattService.SERVICE_TYPE_PRIMARY)
             service.addCharacteristic(characteristic)
@@ -97,7 +96,7 @@ class BleGattServerModule(reactContext: ReactApplicationContext) :
 
         advertiseCallback = object : AdvertiseCallback() {
             override fun onStartSuccess(settingsInEffect: AdvertiseSettings) {
-                startPromise?.resolve(null)  // resolve only when actually advertising
+                startPromise?.resolve(null)
                 startPromise = null
             }
             override fun onStartFailure(errorCode: Int) {

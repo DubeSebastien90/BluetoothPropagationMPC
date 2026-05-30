@@ -13,15 +13,16 @@ RCT_EXPORT_MODULE(BlePeripheral);
 // JS-callable methods
 // ------------------------------------------------------------------
 
-RCT_EXPORT_METHOD(startPeripheral:(RCTPromiseResolveBlock)resolve
+RCT_EXPORT_METHOD(startPeripheral:(NSString *)message
+                  resolver:(RCTPromiseResolveBlock)resolve
                   rejecter:(RCTPromiseRejectBlock)reject) {
+  self.pendingMessage = message;
   self.pendingResolve = resolve;
   self.pendingReject  = reject;
   self.waitingToStart = YES;
 
   if (!self.peripheralManager) {
     self.peripheralManager = [[CBPeripheralManager alloc] initWithDelegate:self queue:nil];
-    // Will call peripheralManagerDidUpdateState: when ready
   } else if (self.peripheralManager.state == CBManagerStatePoweredOn) {
     [self setupAndAdvertise];
   } else {
@@ -34,6 +35,7 @@ RCT_EXPORT_METHOD(startPeripheral:(RCTPromiseResolveBlock)resolve
 RCT_EXPORT_METHOD(stopPeripheral:(RCTPromiseResolveBlock)resolve
                   rejecter:(RCTPromiseRejectBlock)reject) {
   self.waitingToStart = NO;
+  self.pendingMessage = nil;
   [self.peripheralManager stopAdvertising];
   [self.peripheralManager removeAllServices];
   resolve(nil);
@@ -58,18 +60,21 @@ RCT_EXPORT_METHOD(stopPeripheral:(RCTPromiseResolveBlock)resolve
 - (void)setupAndAdvertise {
   [self.peripheralManager removeAllServices];
 
-  self.pingCharacteristic = [[CBMutableCharacteristic alloc]
+  // Static value — CoreBluetooth handles read requests automatically
+  NSData *messageData = [self.pendingMessage dataUsingEncoding:NSUTF8StringEncoding];
+
+  self.messageCharacteristic = [[CBMutableCharacteristic alloc]
     initWithType:[CBUUID UUIDWithString:kCharUUID]
-    properties:CBCharacteristicPropertyWrite | CBCharacteristicPropertyWriteWithoutResponse
-    value:nil
-    permissions:CBAttributePermissionsWriteable];
+    properties:CBCharacteristicPropertyRead
+    value:messageData
+    permissions:CBAttributePermissionsReadable];
 
   CBMutableService *service = [[CBMutableService alloc]
     initWithType:[CBUUID UUIDWithString:kServiceUUID]
     primary:YES];
-  service.characteristics = @[self.pingCharacteristic];
+  service.characteristics = @[self.messageCharacteristic];
 
-  [self.peripheralManager addService:service]; // → didAddService:error:
+  [self.peripheralManager addService:service];
 }
 
 - (void)peripheralManager:(CBPeripheralManager *)peripheral
@@ -85,8 +90,8 @@ RCT_EXPORT_METHOD(stopPeripheral:(RCTPromiseResolveBlock)resolve
   }
   [peripheral startAdvertising:@{
     CBAdvertisementDataServiceUUIDsKey: @[service.UUID],
-    CBAdvertisementDataLocalNameKey: @"PingApp"
-  }]; // → peripheralManagerDidStartAdvertising:error:
+    CBAdvertisementDataLocalNameKey: @"MsgApp"
+  }];
 }
 
 - (void)peripheralManagerDidStartAdvertising:(CBPeripheralManager *)peripheral
@@ -102,14 +107,6 @@ RCT_EXPORT_METHOD(stopPeripheral:(RCTPromiseResolveBlock)resolve
   }
   self.pendingResolve = nil;
   self.pendingReject  = nil;
-}
-
-// Respond to write-with-response requests; write-without-response needs no reply.
-- (void)peripheralManager:(CBPeripheralManager *)peripheral
-  didReceiveWriteRequests:(NSArray<CBATTRequest *> *)requests {
-  for (CBATTRequest *req in requests) {
-    [peripheral respondToRequest:req withResult:CBATTErrorSuccess];
-  }
 }
 
 @end

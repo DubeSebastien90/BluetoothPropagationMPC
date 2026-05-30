@@ -1,17 +1,16 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import {
-  View, Text, TouchableOpacity, StyleSheet,
+  View, Text, TextInput, TouchableOpacity, StyleSheet,
   PermissionsAndroid, Platform, Alert, NativeModules,
+  KeyboardAvoidingView,
 } from 'react-native';
 import { BleManager } from 'react-native-ble-plx';
 import { StatusBar } from 'expo-status-bar';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
-// react-native-ble-plx normalises UUIDs to uppercase
 const SERVICE_UUID = '12345678-1234-1234-1234-123456789ABC';
 const CHAR_UUID    = 'ABCDEFAB-1234-1234-1234-ABCDEFABCDEF';
-const PING_B64     = btoa('PING');           // "UElORw=="
-const ADV_TIMEOUT  = 10_000;                 // stop advertising after 10 s
+const ADV_TIMEOUT  = 10_000;
 
 const { BlePeripheral } = NativeModules;
 const bleManager = new BleManager();
@@ -19,7 +18,6 @@ const bleManager = new BleManager();
 // ─── Permissions ──────────────────────────────────────────────────────────────
 async function requestAndroidPermissions() {
   if (Platform.Version >= 31) {
-    // Android 12+ — Bluetooth requires explicit runtime permissions
     const results = await PermissionsAndroid.requestMultiple([
       PermissionsAndroid.PERMISSIONS.BLUETOOTH_SCAN,
       PermissionsAndroid.PERMISSIONS.BLUETOOTH_ADVERTISE,
@@ -28,7 +26,6 @@ async function requestAndroidPermissions() {
     ]);
     return Object.values(results).every(r => r === PermissionsAndroid.RESULTS.GRANTED);
   } else {
-    // Android 11 and below — Bluetooth is auto-granted at install, only Location is runtime
     const result = await PermissionsAndroid.request(
       PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION
     );
@@ -38,14 +35,15 @@ async function requestAndroidPermissions() {
 
 // ─── App ──────────────────────────────────────────────────────────────────────
 export default function App() {
-  const [pong, setPong]         = useState(null);   // null | "PONG from <id>"
-  const [advertising, setAdv]   = useState(false);
-  const [scanning, setScanning]  = useState(false);
-  const [error, setError]        = useState(null);   // null | string
-  const connecting               = useRef(new Set()); // device IDs in-flight
-  const pongTimer                = useRef(null);
-  const advTimer                 = useRef(null);
-  const errorTimer               = useRef(null);
+  const [message, setMessage]         = useState('');        // text input value
+  const [received, setReceived]       = useState(null);      // received message to display
+  const [sending, setSending]         = useState(false);     // advertising in progress
+  const [scanning, setScanning]       = useState(false);
+  const [error, setError]             = useState(null);
+  const connecting                    = useRef(new Set());
+  const receivedTimer                 = useRef(null);
+  const advTimer                      = useRef(null);
+  const errorTimer                    = useRef(null);
 
   function showError(msg) {
     setError(msg);
@@ -53,7 +51,14 @@ export default function App() {
     errorTimer.current = setTimeout(() => setError(null), 5000);
   }
 
-  // ── Start BLE central (scanning) once BT is on ────────────────────────────
+  function showReceived(text, fromId) {
+    const short = fromId.slice(-5).toUpperCase();
+    setReceived({ text, from: `…${short}` });
+    clearTimeout(receivedTimer.current);
+    receivedTimer.current = setTimeout(() => setReceived(null), 6000);
+  }
+
+  // ── BLE state + permissions + scan ────────────────────────────────────────
   useEffect(() => {
     const sub = bleManager.onStateChange(state => {
       if (state === 'PoweredOn') {
@@ -78,44 +83,39 @@ export default function App() {
     if (Platform.OS === 'android') {
       const granted = await requestAndroidPermissions();
       if (!granted) {
-        Alert.alert(
-          'Permissions required',
-          'Grant all Bluetooth and Location permissions then restart the app.'
-        );
+        Alert.alert('Permissions required', 'Grant Bluetooth and Location permissions then restart the app.');
         return;
       }
     }
     startScanning();
   }
 
-  // ── Central: scan → connect → write → show PONG ───────────────────────────
+  // ── Central: scan → connect → READ message → display ─────────────────────
   const startScanning = useCallback(() => {
     setScanning(true);
     bleManager.startDeviceScan(
       [SERVICE_UUID],
       { allowDuplicates: true },
-      (error, device) => {
-        if (error) { showError(`Scan error: ${error.message}`); return; }
+      (err, device) => {
+        if (err) { showError(`Scan error: ${err.message}`); return; }
         if (!device) return;
-        connectAndPing(device);
+        connectAndRead(device);
       }
     );
   }, []);
 
-  async function connectAndPing(device) {
+  async function connectAndRead(device) {
     if (connecting.current.has(device.id)) return;
     connecting.current.add(device.id);
     try {
       const connected = await device.connect({ timeout: 5000 });
       await connected.discoverAllServicesAndCharacteristics();
-      await connected.writeCharacteristicWithResponseForService(
-        SERVICE_UUID, CHAR_UUID, PING_B64
-      );
-      showPong(device.id);
+      const char = await connected.readCharacteristicForService(SERVICE_UUID, CHAR_UUID);
+      const text = atob(char.value);   // decode base64 → original message string
+      showReceived(text, device.id);
       await connected.cancelConnection();
     } catch (e) {
       const msg = e?.message ?? String(e);
-      // "already connected" and "operation cancelled" are expected noise — skip them
       if (!msg.includes('already') && !msg.includes('cancelled')) {
         showError(`Connect failed (${device.id.slice(-5)}): ${msg}`);
       }
@@ -124,55 +124,73 @@ export default function App() {
     }
   }
 
-  function showPong(deviceId) {
-    // Shorten deviceId: last 5 chars (MAC tail on Android, UUID tail on iOS)
-    const short = deviceId.slice(-5).toUpperCase();
-    setPong(`PONG from …${short}`);
-    clearTimeout(pongTimer.current);
-    pongTimer.current = setTimeout(() => setPong(null), 4000);
-  }
-
-  // ── Peripheral: advertise GATT service so others can find & write to us ───
-  async function handlePing() {
-    if (advertising) return;
-    setAdv(true);
+  // ── Peripheral: load message into readable characteristic + advertise ──────
+  async function handleSend() {
+    const text = message.trim();
+    if (!text || sending) return;
+    setSending(true);
     try {
-      await BlePeripheral.startPeripheral();
+      await BlePeripheral.startPeripheral(text);   // passes message to native
       advTimer.current = setTimeout(async () => {
         await BlePeripheral.stopPeripheral();
-        setAdv(false);
+        setSending(false);
       }, ADV_TIMEOUT);
     } catch (e) {
-      showError(`PING failed: ${e?.message ?? String(e)}`);
-      setAdv(false);
+      showError(`Send failed: ${e?.message ?? String(e)}`);
+      setSending(false);
     }
   }
 
   // ─── UI ───────────────────────────────────────────────────────────────────
   return (
-    <View style={styles.container}>
-      {/* PONG indicator — invisible (opacity 0) when no pong, so layout is stable */}
-      <Text style={[styles.pong, !pong && styles.hidden]}>
-        {pong ?? 'PONG from …XXXXX'}
-      </Text>
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+    >
+      <StatusBar style="light" />
 
+      {/* Received message */}
+      <View style={styles.receivedBox}>
+        {received ? (
+          <>
+            <Text style={styles.receivedText}>{received.text}</Text>
+            <Text style={styles.receivedFrom}>from {received.from}</Text>
+          </>
+        ) : (
+          <Text style={styles.receivedPlaceholder}>waiting for messages…</Text>
+        )}
+      </View>
+
+      {/* Text input */}
+      <TextInput
+        style={styles.input}
+        value={message}
+        onChangeText={setMessage}
+        placeholder="Type a message…"
+        placeholderTextColor="#444"
+        returnKeyType="send"
+        onSubmitEditing={handleSend}
+        editable={!sending}
+      />
+
+      {/* Send button */}
       <TouchableOpacity
-        style={[styles.button, advertising && styles.buttonBusy]}
-        onPress={handlePing}
+        style={[styles.button, (sending || !message.trim()) && styles.buttonDisabled]}
+        onPress={handleSend}
         activeOpacity={0.75}
-        disabled={advertising}
+        disabled={sending || !message.trim()}
       >
-        <Text style={styles.buttonText}>{advertising ? 'PINGING…' : 'PING'}</Text>
+        <Text style={styles.buttonText}>
+          {sending ? 'SENDING…' : 'SEND'}
+        </Text>
       </TouchableOpacity>
 
+      {/* Status + errors */}
       <Text style={styles.status}>
         {scanning ? '📡 scanning' : '⏳ waiting for BT'}
       </Text>
-
       {error && <Text style={styles.error}>{error}</Text>}
-
-      <StatusBar style="light" />
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -182,33 +200,62 @@ const styles = StyleSheet.create({
     backgroundColor: '#0a0a1a',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 40,
+    gap: 24,
+    paddingHorizontal: 24,
   },
-  pong: {
-    fontSize: 36,
-    fontWeight: 'bold',
+  receivedBox: {
+    width: '100%',
+    minHeight: 100,
+    backgroundColor: '#111',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#222',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 20,
+  },
+  receivedText: {
     color: '#00e5ff',
-    letterSpacing: 2,
+    fontSize: 28,
+    fontWeight: 'bold',
+    textAlign: 'center',
   },
-  hidden: {
-    opacity: 0,
+  receivedFrom: {
+    color: '#555',
+    fontSize: 13,
+    marginTop: 8,
+  },
+  receivedPlaceholder: {
+    color: '#333',
+    fontSize: 14,
+  },
+  input: {
+    width: '100%',
+    backgroundColor: '#111',
+    borderWidth: 1,
+    borderColor: '#333',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    color: '#fff',
+    fontSize: 16,
   },
   button: {
     backgroundColor: '#6200ee',
-    paddingVertical: 24,
-    paddingHorizontal: 64,
-    borderRadius: 16,
+    paddingVertical: 18,
+    paddingHorizontal: 48,
+    borderRadius: 14,
     minWidth: 180,
     alignItems: 'center',
   },
-  buttonBusy: {
-    backgroundColor: '#333',
+  buttonDisabled: {
+    backgroundColor: '#2a2a2a',
   },
   buttonText: {
     color: '#fff',
-    fontSize: 28,
+    fontSize: 20,
     fontWeight: 'bold',
-    letterSpacing: 4,
+    letterSpacing: 3,
   },
   status: {
     color: '#555',
@@ -218,6 +265,5 @@ const styles = StyleSheet.create({
     color: '#ff5252',
     fontSize: 13,
     textAlign: 'center',
-    paddingHorizontal: 24,
   },
 });
