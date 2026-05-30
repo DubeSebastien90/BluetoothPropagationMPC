@@ -8,7 +8,9 @@
     "expo-status-bar": "~56.0.4",
     "react": "19.2.3",
     "react-native": "0.85.3",
-    "react-native-ble-plx": "^3.5.1"
+    "react-native-ble-plx": "^3.5.1",
+    "react-native-qrcode-svg": "^6.3.21",
+    "react-native-svg": "15.15.4"
   },
   "scripts": {
     "start": "expo start",
