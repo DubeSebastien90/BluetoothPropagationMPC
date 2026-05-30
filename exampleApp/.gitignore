@@ -36,6 +36,4 @@ yarn-error.*
 # typescript
 *.tsbuildinfo
 
-# generated native folders
-/ios
-/android
+# generated native folders (removed — customized with native BLE modules)
