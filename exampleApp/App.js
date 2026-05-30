@@ -6,13 +6,19 @@ import {
 } from 'react-native';
 import { BleManager } from 'react-native-ble-plx';
 import { StatusBar } from 'expo-status-bar';
+import { requireNativeModule } from 'expo-modules-core';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const SERVICE_UUID = '12345678-1234-1234-1234-123456789ABC';
 const CHAR_UUID    = 'ABCDEFAB-1234-1234-1234-ABCDEFABCDEF';
 const ADV_TIMEOUT  = 10_000;
 
-const { BlePeripheral } = NativeModules;
+// iOS: Expo Module (Swift, new arch native)
+// Android: legacy bridge module (Kotlin, works fine with new arch interop)
+const BlePeripheral = Platform.OS === 'ios'
+  ? requireNativeModule('BlePeripheral')
+  : NativeModules.BlePeripheral;
+
 const bleManager = new BleManager();
 
 // ─── Permissions ──────────────────────────────────────────────────────────────
@@ -130,8 +136,7 @@ export default function App() {
     if (!text || sending) return;
     setSending(true);
     try {
-      BlePeripheral.setMessage(text);              // store message (sync, no promise)
-      await BlePeripheral.startPeripheral();       // advertise (async, no string arg)
+      await BlePeripheral.startPeripheral(text);   // atomic: message + start in one call
       advTimer.current = setTimeout(async () => {
         await BlePeripheral.stopPeripheral();
         setSending(false);
