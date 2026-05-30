@@ -43,6 +43,8 @@ async function requestAndroidPermissions() {
 // ─── App ──────────────────────────────────────────────────────────────────────
 export default function App() {
   const [message, setMessage]         = useState('');        // text input value
+  const [id, setId]                   = useState('');        // sender ID included in each packet
+  const [myId, setMyId]               = useState('');        // only show received messages matching this ID
   const [received, setReceived]       = useState(null);      // received message to display
   const [sending, setSending]         = useState(false);     // advertising in progress
   const [scanning, setScanning]       = useState(false);
@@ -54,6 +56,7 @@ export default function App() {
   const receivedTimer                 = useRef(null);
   const advTimer                      = useRef(null);
   const errorTimer                    = useRef(null);
+  const myIdRef                       = useRef('');
 
   function showError(msg) {
     setError(msg);
@@ -67,6 +70,8 @@ export default function App() {
     clearTimeout(receivedTimer.current);
     receivedTimer.current = setTimeout(() => setReceived(null), 6000);
   }
+
+  useEffect(() => { myIdRef.current = myId; }, [myId]);
 
   // ── BLE state + permissions + scan ────────────────────────────────────────
   useEffect(() => {
@@ -121,8 +126,15 @@ export default function App() {
       const connected = await device.connect({ timeout: 5000 });
       await connected.discoverAllServicesAndCharacteristics();
       const char = await connected.readCharacteristicForService(SERVICE_UUID, CHAR_UUID);
-      const text = atob(char.value);   // decode base64 → original message string
-      showReceived(text, device.id);
+      const raw = atob(char.value);
+      try {
+        const parsed = JSON.parse(raw);
+        const filter = myIdRef.current.trim();
+        if (filter && parsed.id !== filter) return;
+        showReceived(parsed.text ?? raw, device.id);
+      } catch {
+        showReceived(raw, device.id);
+      }
       await connected.cancelConnection();
     } catch (e) {
       const msg = e?.message ?? String(e);
@@ -140,7 +152,8 @@ export default function App() {
     if (!text || sending) return;
     setSending(true);
     try {
-      await BlePeripheral.startPeripheral(text);   // atomic: message + start in one call
+      const payload = JSON.stringify({ id: id.trim(), text });
+      await BlePeripheral.startPeripheral(payload);
       advTimer.current = setTimeout(async () => {
         await BlePeripheral.stopPeripheral();
         setSending(false);
@@ -235,7 +248,30 @@ export default function App() {
         )}
       </View>
 
-      {/* Text input */}
+      {/* My ID field (receive filter) */}
+      <TextInput
+        style={styles.input}
+        value={myId}
+        onChangeText={setMyId}
+        placeholder="My ID (only show messages sent to this ID)…"
+        placeholderTextColor="#444"
+        autoCapitalize="none"
+        autoCorrect={false}
+      />
+
+      {/* Sender ID field */}
+      <TextInput
+        style={styles.input}
+        value={id}
+        onChangeText={setId}
+        placeholder="ID (your sender ID, sent with each message)…"
+        placeholderTextColor="#444"
+        autoCapitalize="none"
+        autoCorrect={false}
+        editable={!sending}
+      />
+
+      {/* Message text input */}
       <TextInput
         style={styles.input}
         value={message}
