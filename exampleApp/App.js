@@ -8,6 +8,7 @@ import { BleManager } from 'react-native-ble-plx';
 import { StatusBar } from 'expo-status-bar';
 import { requireNativeModule } from 'expo-modules-core';
 import QRCode from 'react-native-qrcode-svg';
+import { createPacket, serializePacket, deserializePacket } from './src/contracts/Packet';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const SERVICE_UUID = '12345678-1234-1234-1234-123456789ABC';
@@ -127,14 +128,11 @@ export default function App() {
       await connected.discoverAllServicesAndCharacteristics();
       const char = await connected.readCharacteristicForService(SERVICE_UUID, CHAR_UUID);
       const raw = atob(char.value);
-      try {
-        const parsed = JSON.parse(raw);
-        const filter = myIdRef.current.trim();
-        if (filter && parsed.id !== filter) return;
-        showReceived(parsed.text ?? raw, device.id);
-      } catch {
-        showReceived(raw, device.id);
-      }
+      const packet = deserializePacket(raw);
+      if (!packet) return;
+      const filter = myIdRef.current.trim();
+      if (filter && packet.fromId !== filter) return;
+      showReceived(packet.body, device.id);
       await connected.cancelConnection();
     } catch (e) {
       const msg = e?.message ?? String(e);
@@ -152,8 +150,8 @@ export default function App() {
     if (!text || sending) return;
     setSending(true);
     try {
-      const payload = JSON.stringify({ id: id.trim(), text });
-      await BlePeripheral.startPeripheral(payload);
+      const packet = createPacket({ from: 'User', fromId: id.trim(), to: 'all', toId: 'all', body: text });
+      await BlePeripheral.startPeripheral(serializePacket(packet));
       advTimer.current = setTimeout(async () => {
         await BlePeripheral.stopPeripheral();
         setSending(false);
