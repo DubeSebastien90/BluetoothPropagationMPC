@@ -44,7 +44,12 @@ class BleGattServerModule(reactContext: ReactApplicationContext) :
     }
 
     @ReactMethod
-    fun startPeripheral(message: String, promise: Promise) {
+    fun setMessage(message: String) {
+        messageBytes = message.toByteArray(Charsets.UTF_8)
+    }
+
+    @ReactMethod
+    fun startPeripheral(promise: Promise) {
         try {
             val btManager = reactApplicationContext
                 .getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
@@ -61,8 +66,7 @@ class BleGattServerModule(reactContext: ReactApplicationContext) :
                 return
             }
 
-            messageBytes = message.toByteArray(Charsets.UTF_8)
-            startPromise  = promise
+            startPromise = promise
 
             val characteristic = BluetoothGattCharacteristic(
                 CHAR_UUID,

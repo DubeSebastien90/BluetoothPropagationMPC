@@ -13,10 +13,12 @@ RCT_EXPORT_MODULE(BlePeripheral);
 // JS-callable methods
 // ------------------------------------------------------------------
 
-RCT_EXPORT_METHOD(startPeripheral:(NSString *)message
-                  resolver:(RCTPromiseResolveBlock)resolve
-                  rejecter:(RCTPromiseRejectBlock)reject) {
+RCT_EXPORT_METHOD(setMessage:(NSString *)message) {
   self.pendingMessage = message;
+}
+
+RCT_EXPORT_METHOD(startPeripheral:(RCTPromiseResolveBlock)resolve
+                  rejecter:(RCTPromiseRejectBlock)reject) {
   self.pendingResolve = resolve;
   self.pendingReject  = reject;
   self.waitingToStart = YES;

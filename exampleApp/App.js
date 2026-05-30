@@ -130,7 +130,8 @@ export default function App() {
     if (!text || sending) return;
     setSending(true);
     try {
-      await BlePeripheral.startPeripheral(text);   // passes message to native
+      BlePeripheral.setMessage(text);              // store message (sync, no promise)
+      await BlePeripheral.startPeripheral();       // advertise (async, no string arg)
       advTimer.current = setTimeout(async () => {
         await BlePeripheral.stopPeripheral();
         setSending(false);
