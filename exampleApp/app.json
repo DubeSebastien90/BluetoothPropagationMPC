@@ -10,7 +10,11 @@
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSBluetoothAlwaysUsageDescription": "This app uses Bluetooth to send and receive pings from nearby devices.",
+        "NSBluetoothPeripheralUsageDescription": "This app uses Bluetooth to send and receive pings from nearby devices."
+      }
     },
     "android": {
       "adaptiveIcon": {
