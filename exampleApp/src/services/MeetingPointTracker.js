@@ -16,11 +16,12 @@ function distanceMeters(lat1, lng1, lat2, lng2) {
 
 export class MeetingPointTracker {
   constructor({ getState, onArrived, onMessage }) {
-    this.getState  = getState;
-    this.onArrived = onArrived;
-    this.onMessage = onMessage;
-    this._timer    = null;
-    this._running  = false;
+    this.getState   = getState;
+    this.onArrived  = onArrived;
+    this.onMessage  = onMessage;
+    this._timer     = null;
+    this._running   = false;
+    this._arrivedIds = new Set();
   }
 
   start() {
@@ -53,10 +54,12 @@ export class MeetingPointTracker {
     }
 
     for (const mp of active) {
+      if (this._arrivedIds.has(mp.id)) continue;
       const dist = distanceMeters(coords.latitude, coords.longitude, mp.meetLat, mp.meetLng);
       console.log(TAG, `distance to ${mp.contactNickname}'s meeting point: ${Math.round(dist)}m`);
 
       if (dist <= THRESHOLD) {
+        this._arrivedIds.add(mp.id);
         console.log(TAG, `arrived at ${mp.contactNickname}'s meeting point — sending notification`);
         const message = `${identity.nickname} just arrived at your meeting point! 🎯`;
         const body    = JSON.stringify({ message });
