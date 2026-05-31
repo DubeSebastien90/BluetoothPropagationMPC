@@ -101,7 +101,7 @@ function AppInner() {
         console.log('[APP] contact_req/ack received — auto-adding:', contact.nickname, type);
         state.crypto.registerPeerKey(contact.pubkey, contact.nickname);
         dispatch({ type: 'ADD_CONTACT', payload: contact });
-        setContactNotif({ ...contact, type });
+        if (type === 'contact_req') setContactNotif({ ...contact, type });
       }
     );
 
