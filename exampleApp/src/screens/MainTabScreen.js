@@ -79,8 +79,16 @@ function ContactsTab({ navigation }) {
           <Image source={NO_ONE} style={ct.emptyImg} resizeMode="contain" />
           <Text style={ct.emptyTitle}>Nothing here yet</Text>
           <Text style={ct.emptyBody}>
-            Go to Add to scan someone's QR code, or subscribe to a topic.
+            Scan a friend's QR code, or jump into a topic channel.
           </Text>
+          <TouchableOpacity
+            style={ct.emptyTopicBtn}
+            onPress={() => navigation.navigate('SubscribeTopic')}
+            activeOpacity={0.75}
+          >
+            <View style={ct.emptyTopicBtnGloss} />
+            <Text style={ct.emptyTopicBtnText}>+ Subscribe to a Topic</Text>
+          </TouchableOpacity>
         </View>
       </View>
     );
@@ -167,6 +175,18 @@ const ct = StyleSheet.create({
     color: 'rgba(255,255,255,0.58)', fontSize: 14,
     textAlign: 'center', lineHeight: 21,
   },
+  emptyTopicBtn: {
+    marginTop: 8, paddingVertical: 12, paddingHorizontal: 24,
+    borderRadius: 9999,
+    backgroundColor: 'rgba(255,255,255,0.16)',
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.50)',
+    overflow: 'hidden',
+  },
+  emptyTopicBtnGloss: {
+    position: 'absolute', top: 0, left: 0, right: 0, height: '50%',
+    backgroundColor: 'rgba(255,255,255,0.18)',
+  },
+  emptyTopicBtnText: { color: '#fff', fontSize: 14, fontWeight: '800', zIndex: 1 },
 
   row: {
     flexDirection: 'row', alignItems: 'center',
@@ -862,42 +882,42 @@ export function MainTabScreen({ navigation, onDeleteAccount }) {
 const s = StyleSheet.create({
   shell: { flex: 1 },
 
-  /* Wii header */
+  /* Header */
   headerSafe: {
-    backgroundColor: 'rgba(255,255,255,0.88)',
-    borderBottomWidth: 1.5,
-    borderBottomColor: 'rgba(100,180,240,0.42)',
+    backgroundColor: 'rgba(160,215,245,0.97)',
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0,100,160,0.15)',
     shadowColor: '#003070',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.12, shadowRadius: 6, elevation: 4,
+    shadowOpacity: 0.10, shadowRadius: 6, elevation: 4,
   },
   header: {
-    height: 44,
+    height: 62,
     flexDirection: 'row', alignItems: 'center',
-    paddingHorizontal: 12, gap: 8, overflow: 'hidden',
+    paddingHorizontal: 16, paddingVertical: 8, gap: 10, overflow: 'hidden',
   },
   headerGloss: {
-    position: 'absolute', top: 0, left: 0, right: 0, height: '55%',
-    backgroundColor: 'rgba(255,255,255,0.52)',
+    position: 'absolute', top: 0, left: 0, right: 0, height: '50%',
+    backgroundColor: 'rgba(255,255,255,0.28)',
   },
-  logo:  { width: 32, height: 32, borderRadius: 8, zIndex: 1 },
+  logo:  { width: 46, height: 46, borderRadius: 13, zIndex: 1 },
   headerTitle: {
-    flex: 1, color: '#004E92', fontSize: 18, fontWeight: '900', zIndex: 1,
+    flex: 1, color: '#003F80', fontSize: 22, fontWeight: '900', zIndex: 1,
   },
   headerTitleCenter: {
     flex: 1, textAlign: 'center',
-    color: '#004E92', fontSize: 17, fontWeight: '900', zIndex: 1,
+    color: '#003F80', fontSize: 19, fontWeight: '900', zIndex: 1,
   },
   peerPill: {
-    backgroundColor: 'rgba(0,78,146,0.10)',
+    backgroundColor: 'rgba(0,78,146,0.12)',
     borderRadius: 9999,
-    borderWidth: 1, borderColor: 'rgba(0,119,182,0.28)',
-    paddingHorizontal: 10, paddingVertical: 3, zIndex: 1,
+    borderWidth: 1, borderColor: 'rgba(0,119,182,0.32)',
+    paddingHorizontal: 12, paddingVertical: 4, zIndex: 1,
   },
-  peerPillText: { color: '#0077B6', fontSize: 12, fontWeight: '700' },
+  peerPillText: { color: '#0055A0', fontSize: 13, fontWeight: '700' },
 
   content: { flex: 1 },
 
   /* Nav safe area matches nav bar colour */
-  navSafe: { backgroundColor: 'rgb(160,215,245)' },
+  navSafe: { backgroundColor: 'rgba(160,215,245,0.97)' },
 });
