@@ -12,6 +12,7 @@ export class BleManager {
   constructor({ onPacketReceived, onPeerConnected, onPeerDisconnected }) {
     this.plx               = new PlxManager();
     this.connectedDevices  = new Map();
+    this._connecting       = new Set(); // device IDs with an in-flight connect
     this.onPacketReceived  = onPacketReceived;
     this.onPeerConnected   = onPeerConnected;
     this.onPeerDisconnected = onPeerDisconnected;
@@ -104,16 +105,16 @@ export class BleManager {
         }
         if (!device) return;
 
-        if (this.connectedDevices.has(device.id)) {
-          console.log(TAG, 'device already connected:', device.id.slice(-5), '— skipping');
-          return;
-        }
+        if (this.connectedDevices.has(device.id) || this._connecting.has(device.id)) return;
 
         console.log(TAG, 'found device:', device.id.slice(-5), device.name ?? '(no name)', '— connecting...');
+        this._connecting.add(device.id);
         try {
           await this._connect(device);
         } catch (e) {
           console.warn(TAG, 'connect failed for', device.id.slice(-5), '—', e.message);
+        } finally {
+          this._connecting.delete(device.id);
         }
       }
     );
@@ -124,8 +125,8 @@ export class BleManager {
     console.log(TAG, 'connected to', device.id.slice(-5));
 
     if (Platform.OS === 'android') {
-      const mtu = await connected.requestMTU(512);
-      console.log(TAG, 'MTU negotiated:', mtu, 'for', device.id.slice(-5));
+      const withMtu = await connected.requestMTU(512);
+      console.log(TAG, 'MTU negotiated:', withMtu.mtu, 'for', device.id.slice(-5));
     }
 
     await connected.discoverAllServicesAndCharacteristics();
@@ -137,9 +138,11 @@ export class BleManager {
     connected.onDisconnected(() => {
       console.log(TAG, 'disconnected from', device.id.slice(-5), '— will rescan in 2s');
       this.connectedDevices.delete(device.id);
+      this._connecting.delete(device.id);
       this.onPeerDisconnected(device.id);
       setTimeout(() => {
         console.log(TAG, 'restarting scan after disconnect');
+        this.plx.stopDeviceScan(); // stop current session before starting fresh
         this._scan();
       }, 2000);
     });
