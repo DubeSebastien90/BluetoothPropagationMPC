@@ -7,7 +7,6 @@ import { ChatScreen }       from '../screens/ChatScreen';
 import { ProfileScreen }    from '../screens/ProfileScreen';
 import { ScanScreen }       from '../screens/ScanScreen';
 import { BroadcastScreen }  from '../screens/BroadcastScreen';
-import { MapScreen }        from '../screens/MapScreen';
 import { useApp }           from '../state/AppContext';
 
 const Stack = createNativeStackNavigator();
@@ -67,11 +66,6 @@ export function AppNavigator() {
           name="Scan"
           component={ScanScreen}
           options={{ title: 'Scan QR Code' }}
-        />
-        <Stack.Screen
-          name="Map"
-          component={MapScreen}
-          options={{ title: '📍 Location' }}
         />
       </Stack.Navigator>
     </NavigationContainer>
