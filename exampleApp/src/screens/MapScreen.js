@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, ActivityIndicator, Platform } from 'react-nativ
 import MapboxGL from '@rnmapbox/maps';
 import * as Location from 'expo-location';
 
-MapboxGL.setAccessToken(process.env.MAPBOX_ACCESS_TOKEN);
+MapboxGL.setAccessToken(process.env.EXPO_PUBLIC_MAPBOX_ACCESS_TOKEN);
 
 const OFFLINE_PADDING = 0.05; // ~5km padding around markers
 const OFFLINE_MIN_ZOOM = 10;
