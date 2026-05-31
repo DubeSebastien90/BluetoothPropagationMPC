@@ -181,13 +181,14 @@ export class MeshRouter {
         : this._tryDecrypt(packet.body, packet.fromId);
 
       this.onMessageForMe({
-        id:     packet.id,
-        from:   packet.from,
-        fromId: packet.fromId,
-        to:     packet.to,
-        toId:   packet.toId,
-        body:   decryptedBody,
-        ts:     packet.ts,
+        id:      packet.id,
+        from:    packet.from,
+        fromId:  packet.fromId,
+        to:      packet.to,
+        toId:    packet.toId,
+        body:    decryptedBody,
+        ts:      packet.ts,
+        ...(packet.groupId && { groupId: packet.groupId }),
       });
     } else {
       console.log(TAG, 'packet not for me (to:', packet.to, ') — checking TTL...');
