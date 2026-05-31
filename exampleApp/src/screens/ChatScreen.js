@@ -1,9 +1,11 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   View, Text, FlatList, TextInput,
-  TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform,
+  TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, Alert,
 } from 'react-native';
+import * as Location from 'expo-location';
 import { useApp } from '../state/AppContext';
+import { encodeLocation, decodeLocation } from '../utils/locationMessage';
 
 /**
  * Props:
@@ -12,13 +14,46 @@ import { useApp } from '../state/AppContext';
  * Reads router from AppContext.
  * Routes by pubkey (toId) — two users named "Alex" are never confused.
  */
-export function ChatScreen({ route }) {
+export function ChatScreen({ route, navigation }) {
   const { contact } = route.params;
   const { state, dispatch } = useApp();
   const [input, setInput] = useState('');
   const listRef = useRef(null);
 
   const myPubkey = state.identity?.pubkey;
+
+  const shareLocation = useCallback(async () => {
+    const { status } = await Location.requestForegroundPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission denied', 'Location access is required to share your position.');
+      return;
+    }
+    const { coords } = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
+    const body = encodeLocation(coords.latitude, coords.longitude);
+    state.router.send(contact.nickname, contact.pubkey, body);
+    dispatch({
+      type: 'ADD_MESSAGE',
+      payload: {
+        id:     Date.now().toString(),
+        from:   state.identity.nickname,
+        fromId: myPubkey,
+        to:     contact.nickname,
+        toId:   contact.pubkey,
+        body,
+        ts:     Date.now(),
+      },
+    });
+  }, [state.router, state.identity, contact, myPubkey, dispatch]);
+
+  useEffect(() => {
+    navigation.setOptions({
+      headerRight: () => (
+        <TouchableOpacity onPress={shareLocation} style={s.headerBtn}>
+          <Text style={s.headerBtnText}>📍</Text>
+        </TouchableOpacity>
+      ),
+    });
+  }, [navigation, shareLocation]);
 
   const thread = state.messages.filter(m =>
     (m.fromId === myPubkey       && m.toId === contact.pubkey) ||
@@ -59,14 +94,28 @@ export function ChatScreen({ route }) {
             No messages yet.{'\n'}Say something!
           </Text>
         }
-        renderItem={({ item }) => (
-          <View style={[s.bubble, item.fromId === myPubkey ? s.mine : s.theirs]}>
-            <Text style={s.body}>{item.body}</Text>
-            <Text style={s.meta}>
-              {item.from} · {new Date(item.ts).toLocaleTimeString()}
-            </Text>
-          </View>
-        )}
+        renderItem={({ item }) => {
+          const loc = decodeLocation(item.body);
+          const isMine = item.fromId === myPubkey;
+          return (
+            <View style={[s.bubble, isMine ? s.mine : s.theirs]}>
+              {loc ? (
+                <TouchableOpacity
+                  onPress={() => navigation.navigate('Map', { lat: loc.lat, lng: loc.lng })}
+                >
+                  <Text style={s.locationIcon}>📍</Text>
+                  <Text style={s.locationLabel}>Shared a location</Text>
+                  <Text style={s.locationHint}>Tap to open map</Text>
+                </TouchableOpacity>
+              ) : (
+                <Text style={s.body}>{item.body}</Text>
+              )}
+              <Text style={s.meta}>
+                {item.from} · {new Date(item.ts).toLocaleTimeString()}
+              </Text>
+            </View>
+          );
+        }}
       />
       <View style={s.composer}>
         <TextInput
@@ -112,5 +161,10 @@ const s = StyleSheet.create({
     backgroundColor: '#2563eb', borderRadius: 8,
     paddingHorizontal: 16, justifyContent: 'center',
   },
-  sendBtnText: { color: '#fff', fontWeight: 'bold' },
+  sendBtnText:    { color: '#fff', fontWeight: 'bold' },
+  headerBtn:      { marginRight: 12, padding: 4 },
+  headerBtnText:  { fontSize: 22 },
+  locationIcon:   { fontSize: 28, textAlign: 'center' },
+  locationLabel:  { color: '#fff', fontWeight: '600', fontSize: 14, textAlign: 'center', marginTop: 4 },
+  locationHint:   { color: '#aaa', fontSize: 11, textAlign: 'center', marginTop: 2 },
 });
