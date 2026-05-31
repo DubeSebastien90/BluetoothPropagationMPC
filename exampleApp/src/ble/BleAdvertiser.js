@@ -1,8 +1,8 @@
 import { Platform, NativeModules, NativeEventEmitter } from 'react-native';
 import { deserializePacket } from '../contracts/Packet';
 
-// iOS: Expo Module accessed via requireNativeModule
-// Android: classic NativeModules
+const TAG = '[BLE-P]'; // P = peripheral
+
 let NativePeripheral;
 let emitter;
 
@@ -18,26 +18,39 @@ if (Platform.OS === 'ios') {
 export class BleAdvertiser {
   constructor({ onPacketReceived }) {
     this.onPacketReceived = onPacketReceived;
-    this._subscription = null;
+    this._subscription    = null;
   }
 
   async start() {
-    // Listen for incoming writes from centrals before advertising
-    // so we don't miss a packet that arrives immediately on connect
+    console.log(TAG, 'starting peripheral — subscribing to write events');
+
     this._subscription = emitter.addListener('onPacketReceived', (event) => {
-      // iOS sends { data: string }, Android sends the string directly
       const raw = typeof event === 'string' ? event : event?.data;
-      if (!raw) return;
+      console.log(TAG, 'raw write received, length:', raw?.length ?? 0);
+
+      if (!raw) {
+        console.warn(TAG, 'write event had no data — skipping');
+        return;
+      }
+
       const packet = deserializePacket(raw);
-      if (packet) this.onPacketReceived(packet);
+      if (packet) {
+        console.log(TAG, 'packet parsed OK — id:', packet.id, 'from:', packet.from, 'to:', packet.to, 'ttl:', packet.ttl);
+        this.onPacketReceived(packet);
+      } else {
+        console.warn(TAG, 'failed to deserialize packet — raw:', raw.slice(0, 80));
+      }
     });
 
     await NativePeripheral.startPeripheral();
+    console.log(TAG, 'advertising started');
   }
 
   async stop() {
+    console.log(TAG, 'stopping peripheral');
     this._subscription?.remove();
     this._subscription = null;
     await NativePeripheral.stopPeripheral();
+    console.log(TAG, 'advertising stopped');
   }
 }

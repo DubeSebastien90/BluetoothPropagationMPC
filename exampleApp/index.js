@@ -1,3 +1,4 @@
+import 'react-native-get-random-values'; // must be first — polyfills crypto.getRandomValues for tweetnacl
 import { registerRootComponent } from 'expo';
 
 import App from './App';

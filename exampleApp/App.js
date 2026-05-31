@@ -1,4 +1,6 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
+import { View, ActivityIndicator, Text, StyleSheet } from 'react-native';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AppProvider, useApp } from './src/state/AppContext';
 import { AppNavigator }        from './src/navigation/AppNavigator';
@@ -8,16 +10,13 @@ import { MeshRouter }          from './src/mesh/MeshRouter';
 import { PeerManager }         from './src/mesh/peerManager';
 import { RealCrypto }          from './src/crypto/RealCrypto';
 
-// Storage keys — versioned to prevent old NullCrypto data from conflicting
 const CONTACTS_KEY = 'contacts_v1';
 
 function AppInner() {
   const { state, dispatch } = useApp();
+  const [initError, setInitError] = useState(null);
 
   // ── Step 1: Initialise crypto on launch ─────────────────────────────────────
-  // Runs once. Generates or loads the keypair, then validates any stored identity.
-  // If the stored identity has a different pubkey (e.g. from old NullCrypto run),
-  // it is discarded so the user sets up fresh with their real keypair.
   useEffect(() => {
     const init = async () => {
       const crypto = new RealCrypto();
@@ -29,16 +28,14 @@ function AppInner() {
         const identity = JSON.parse(storedIdentity);
 
         if (identity.pubkey !== pubkey) {
-          // Pubkey mismatch — old data from NullCrypto or a previous keypair.
-          // Clear everything and let the user go through SetupScreen again.
-          console.log('[APP] stored identity pubkey mismatch — clearing old data');
+          // Pubkey mismatch — old NullCrypto data or rotated keypair. Start fresh.
+          console.log('[APP] pubkey mismatch — clearing old identity data');
           await AsyncStorage.multiRemove([IDENTITY_KEY, CONTACTS_KEY]);
           return;
         }
 
         dispatch({ type: 'SET_IDENTITY', payload: identity });
 
-        // Restore contacts and re-register their keys with crypto
         const storedContacts = await AsyncStorage.getItem(CONTACTS_KEY);
         if (storedContacts) {
           const contacts = JSON.parse(storedContacts);
@@ -48,7 +45,10 @@ function AppInner() {
       }
     };
 
-    init().catch(e => console.error('[APP] init failed:', e));
+    init().catch(e => {
+      console.error('[APP] init failed:', e);
+      setInitError(e.message);
+    });
   }, []);
 
   // ── Step 2: Persist contacts whenever they change ────────────────────────────
@@ -59,7 +59,7 @@ function AppInner() {
     }
   }, [state.contacts]);
 
-  // ── Step 3: Start BLE once both identity and crypto are ready ────────────────
+  // ── Step 3: Start BLE once identity + crypto are both ready ─────────────────
   useEffect(() => {
     if (!state.identity || !state.crypto) return;
 
@@ -89,16 +89,46 @@ function AppInner() {
     return () => transport.stop();
   }, [state.identity, state.crypto]);
 
-  // Wait for crypto to initialise before showing anything
-  if (!state.crypto)   return null;
+  // ── Render ───────────────────────────────────────────────────────────────────
+
+  if (initError) {
+    return (
+      <View style={s.center}>
+        <Text style={s.errorTitle}>Startup error</Text>
+        <Text style={s.errorMsg}>{initError}</Text>
+      </View>
+    );
+  }
+
+  if (!state.crypto) {
+    return (
+      <View style={s.center}>
+        <ActivityIndicator size="large" color="#2563eb" />
+        <Text style={s.loadingText}>Initialising...</Text>
+      </View>
+    );
+  }
+
   if (!state.identity) return <SetupScreen />;
   return <AppNavigator />;
 }
 
 export default function App() {
   return (
-    <AppProvider>
-      <AppInner />
-    </AppProvider>
+    <SafeAreaProvider>
+      <AppProvider>
+        <AppInner />
+      </AppProvider>
+    </SafeAreaProvider>
   );
 }
+
+const s = StyleSheet.create({
+  center: {
+    flex: 1, backgroundColor: '#0a0a1a',
+    alignItems: 'center', justifyContent: 'center', gap: 16,
+  },
+  loadingText: { color: '#555', fontSize: 14 },
+  errorTitle:  { color: '#ff5252', fontSize: 18, fontWeight: 'bold' },
+  errorMsg:    { color: '#ff5252', fontSize: 13, textAlign: 'center', paddingHorizontal: 32 },
+});

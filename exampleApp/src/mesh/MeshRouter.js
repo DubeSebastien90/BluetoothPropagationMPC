@@ -1,35 +1,38 @@
 import { createPacket } from '../contracts/Packet';
 
+const TAG = '[ROUTER]';
+
 export class MeshRouter {
-  /**
-   * @param {Object} identity   - { nickname, pubkey } — local user's identity
-   * @param transport           - satisfies TransportContract
-   * @param crypto              - satisfies CryptoContract
-   * @param onMessageForMe      - callback({ id, from, fromId, to, toId, body, ts })
-   */
   constructor(identity, transport, crypto, onMessageForMe) {
-    this.identity = identity;
-    this.transport = transport;
-    this.crypto = crypto;
+    this.identity       = identity;
+    this.transport      = transport;
+    this.crypto         = crypto;
     this.onMessageForMe = onMessageForMe;
-    this.seen = new Map(); // id → timestamp
-    this.SEEN_TTL_MS = 60_000;
+    this.seen           = new Map();
+    this.SEEN_TTL_MS    = 60_000;
   }
 
   start() {
+    console.log(TAG, 'started — identity:', this.identity.nickname, this.identity.pubkey.slice(0, 12) + '...');
     this.transport.onPacketReceived = this._handleIncoming.bind(this);
   }
 
   stop() {
+    console.log(TAG, 'stopped');
     this.transport.onPacketReceived = null;
   }
 
-  // Called by ChatScreen
-  // toId = recipient's pubkey (their actual identity)
   send(toNickname, toId, body) {
-    const encryptedBody = toId === 'all'
-      ? body
-      : this._tryEncrypt(body, toId);
+    const isBroadcast = toId === 'all';
+    let encryptedBody = body;
+
+    if (!isBroadcast) {
+      encryptedBody = this._tryEncrypt(body, toId);
+      const encrypted = encryptedBody !== body;
+      console.log(TAG, `send → ${toNickname} (${toId.slice(0, 12)}...) encrypted:${encrypted}`);
+    } else {
+      console.log(TAG, 'send broadcast → all');
+    }
 
     const packet = createPacket({
       from:   this.identity.nickname,
@@ -39,26 +42,35 @@ export class MeshRouter {
       body:   encryptedBody,
     });
 
+    console.log(TAG, 'created packet id:', packet.id, 'ttl:', packet.ttl);
     this.seen.set(packet.id, Date.now());
     this.transport.sendPacket(packet);
   }
 
   _handleIncoming(packet, fromDeviceId) {
-    // Register sender identity — fromId IS their public key
+    console.log(TAG, 'incoming packet id:', packet.id,
+      'from:', packet.from, 'to:', packet.to, 'ttl:', packet.ttl);
+
+    // Register sender's identity on every packet
     if (packet.fromId && packet.from) {
       this.crypto.registerPeerKey(packet.fromId, packet.from);
     }
 
     // Deduplicate
-    if (this.seen.has(packet.id)) return;
+    if (this.seen.has(packet.id)) {
+      console.log(TAG, 'duplicate packet', packet.id, '— dropped');
+      return;
+    }
     this.seen.set(packet.id, Date.now());
     this._pruneSeenCache();
 
-    // Match on pubkey (toId), not nickname — collision-proof
-    const isForMe    = packet.toId === this.identity.pubkey;
+    const isForMe     = packet.toId === this.identity.pubkey;
     const isBroadcast = packet.toId === 'all';
 
     if (isForMe || isBroadcast) {
+      console.log(TAG, isBroadcast ? 'broadcast for me' : 'direct message for me',
+        '— from:', packet.from);
+
       const decryptedBody = isBroadcast
         ? packet.body
         : this._tryDecrypt(packet.body, packet.fromId);
@@ -72,35 +84,52 @@ export class MeshRouter {
         body:   decryptedBody,
         ts:     packet.ts,
       });
+    } else {
+      console.log(TAG, 'packet not for me (to:', packet.to, ') — checking TTL...');
     }
 
-    // Relay if TTL allows — even if it was also for me
     if (packet.ttl > 1) {
-      this.transport.sendPacket(
-        { ...packet, ttl: packet.ttl - 1 },
-        fromDeviceId
-      );
+      console.log(TAG, 'relaying packet', packet.id, 'ttl:', packet.ttl, '→', packet.ttl - 1);
+      this.transport.sendPacket({ ...packet, ttl: packet.ttl - 1 }, fromDeviceId);
+    } else {
+      console.log(TAG, 'TTL=1 — packet', packet.id, 'dropped, not relayed');
     }
   }
 
   _tryEncrypt(body, recipientPubKey) {
     const key = this.crypto.getPeerKey(recipientPubKey);
-    if (!key) return body;
-    try { return this.crypto.encrypt(body, key); }
-    catch { return body; }
+    if (!key) {
+      console.warn(TAG, 'no key for', recipientPubKey.slice(0, 12) + '... — sending plaintext');
+      return body;
+    }
+    try {
+      return this.crypto.encrypt(body, key);
+    } catch (e) {
+      console.warn(TAG, 'encryption failed:', e.message, '— sending plaintext');
+      return body;
+    }
   }
 
   _tryDecrypt(body, senderPubKey) {
     const key = this.crypto.getPeerKey(senderPubKey);
-    if (!key) return body;
-    try { return this.crypto.decrypt(body, key); }
-    catch { return body; }
+    if (!key) {
+      console.warn(TAG, 'no key for sender', senderPubKey.slice(0, 12) + '... — returning as-is');
+      return body;
+    }
+    try {
+      return this.crypto.decrypt(body, key);
+    } catch (e) {
+      console.warn(TAG, 'decryption failed:', e.message, '— returning raw body');
+      return body;
+    }
   }
 
   _pruneSeenCache() {
     const now = Date.now();
+    let pruned = 0;
     for (const [id, ts] of this.seen) {
-      if (now - ts > this.SEEN_TTL_MS) this.seen.delete(id);
+      if (now - ts > this.SEEN_TTL_MS) { this.seen.delete(id); pruned++; }
     }
+    if (pruned > 0) console.log(TAG, 'pruned', pruned, 'old packet IDs from seen cache');
   }
 }

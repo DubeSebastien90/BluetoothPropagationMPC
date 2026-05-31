@@ -1,27 +1,27 @@
-import nacl from 'tweetnacl';
-import { encodeBase64, decodeBase64, encodeUTF8, decodeUTF8 } from 'tweetnacl-util';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as nacl from 'tweetnacl';
+import * as naclUtil from 'tweetnacl-util';
 
-// Versioned key — bump to 'keypair_v2' if the key format ever changes.
-// This prevents old incompatible keypairs from being loaded silently.
+const { encodeBase64, decodeBase64, encodeUTF8, decodeUTF8 } = naclUtil;
+
 const STORAGE_KEY = 'keypair_v1';
+const TAG = '[CRYPTO]';
 
 export class RealCrypto {
   constructor() {
-    this.publicKey  = null; // Uint8Array
-    this.secretKey  = null; // Uint8Array
-    this.peerKeys   = new Map(); // pubkeyB64 → Uint8Array
-    this.peerNames  = new Map(); // pubkeyB64 → nickname
+    this.publicKey = null;
+    this.secretKey = null;
+    this.peerKeys  = new Map(); // pubkeyB64 → Uint8Array
+    this.peerNames = new Map(); // pubkeyB64 → nickname
   }
 
-  // Generates or loads the keypair.
-  // Returns { nickname: null, pubkey: string } — nickname is set by SetupScreen.
   async initialize() {
     const stored = await AsyncStorage.getItem(STORAGE_KEY);
     if (stored) {
       const { pub, sec } = JSON.parse(stored);
       this.publicKey = decodeBase64(pub);
       this.secretKey = decodeBase64(sec);
+      console.log(TAG, 'keypair loaded from storage, pubkey:', pub.slice(0, 12) + '...');
     } else {
       const pair = nacl.box.keyPair();
       this.publicKey = pair.publicKey;
@@ -30,6 +30,7 @@ export class RealCrypto {
         pub: encodeBase64(this.publicKey),
         sec: encodeBase64(this.secretKey),
       }));
+      console.log(TAG, 'new keypair generated, pubkey:', this.getPublicKey().slice(0, 12) + '...');
     }
     return { nickname: null, pubkey: this.getPublicKey() };
   }
@@ -38,10 +39,11 @@ export class RealCrypto {
     return encodeBase64(this.publicKey);
   }
 
-  // Indexed by pubkey — collision-proof identity
   registerPeerKey(pubkey, nickname) {
+    const isNew = !this.peerKeys.has(pubkey);
     this.peerKeys.set(pubkey, decodeBase64(pubkey));
     this.peerNames.set(pubkey, nickname);
+    if (isNew) console.log(TAG, 'registered peer key for', nickname, pubkey.slice(0, 12) + '...');
   }
 
   getPeerKey(pubkey) {
@@ -55,14 +57,10 @@ export class RealCrypto {
   encrypt(body, recipientPubKeyB64) {
     const recipientKey = decodeBase64(recipientPubKeyB64);
     const nonce        = nacl.randomBytes(nacl.box.nonceLength);
-    const encrypted    = nacl.box(
-      encodeUTF8(body),
-      nonce,
-      recipientKey,
-      this.secretKey
-    );
-    // Compact wire format: nonce.ciphertext — no JSON overhead
-    return encodeBase64(nonce) + '.' + encodeBase64(encrypted);
+    const encrypted    = nacl.box(encodeUTF8(body), nonce, recipientKey, this.secretKey);
+    const result       = encodeBase64(nonce) + '.' + encodeBase64(encrypted);
+    console.log(TAG, 'encrypted message for', recipientPubKeyB64.slice(0, 12) + '...');
+    return result;
   }
 
   decrypt(payload, senderPubKeyB64) {
@@ -71,7 +69,11 @@ export class RealCrypto {
     const box       = decodeBase64(payload.slice(dot + 1));
     const senderKey = decodeBase64(senderPubKeyB64);
     const decrypted = nacl.box.open(box, nonce, senderKey, this.secretKey);
-    if (!decrypted) throw new Error('Decryption failed — wrong key or tampered message');
+    if (!decrypted) {
+      console.warn(TAG, 'decryption failed — wrong key or tampered message');
+      throw new Error('Decryption failed — wrong key or tampered message');
+    }
+    console.log(TAG, 'decrypted message from', senderPubKeyB64.slice(0, 12) + '...');
     return decodeUTF8(decrypted);
   }
 }
