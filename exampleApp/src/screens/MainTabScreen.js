@@ -5,6 +5,7 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
+import { Ionicons, Feather } from '@expo/vector-icons';
 import QRCode from 'react-native-qrcode-svg';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useApp } from '../state/AppContext';
@@ -26,10 +27,10 @@ function orbColor(nickname) {
 }
 
 const TABS = [
-  { label: 'Contacts', icon: '💬' },
-  { label: 'Add',      icon: '👥' },
-  { label: 'Nearby',   icon: '📡' },
-  { label: 'Me',       icon: '◉'  },
+  { label: 'Contacts', icon: 'chatbubbles',    lib: 'Ionicons' },
+  { label: 'Add',      icon: 'person-add',      lib: 'Ionicons' },
+  { label: 'Nearby',   icon: 'radio',           lib: 'Ionicons' },
+  { label: 'Me',       icon: 'person-circle',   lib: 'Ionicons' },
 ];
 const HEADER_TITLES = ['toot', 'Add Friend', 'Nearby', 'My Profile'];
 
@@ -761,7 +762,12 @@ function BottomNav({ activeTab, setActiveTab }) {
           >
             <View style={[nb.btn, active && nb.btnActive]}>
               <View style={nb.btnGloss} />
-              <Text style={nb.btnIcon}>{tab.icon}</Text>
+              <Ionicons
+                name={tab.icon}
+                size={20}
+                color={active ? '#003F80' : 'rgba(0,60,120,0.52)'}
+                style={{ zIndex: 1 }}
+              />
             </View>
             <Text style={[nb.label, active && nb.labelActive]}>
               {tab.label}
@@ -814,8 +820,6 @@ const nb = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.28)',
     borderTopLeftRadius: 18, borderTopRightRadius: 18,
   },
-  btnIcon: { fontSize: 18, zIndex: 1 },
-
   label:      { fontSize: 10, fontWeight: '600', color: 'rgba(0,60,120,0.52)' },
   labelActive:{ fontSize: 10, fontWeight: '900', color: '#003F80' },
 });
@@ -848,12 +852,15 @@ export function MainTabScreen({ navigation, onDeleteAccount }) {
               <Text style={s.headerTitle} numberOfLines={1}>
                 {state.identity?.nickname ?? 'toot'}
               </Text>
-              <View style={s.peerPill}>
-                <Text style={s.peerPillText}>
-                  {state.peers.length === 0
-                    ? '📡'
-                    : `🔗 ${state.peers.length}`}
-                </Text>
+              <View style={[s.peerPill, state.peers.length > 0 && s.peerPillActive]}>
+                {state.peers.length === 0 ? (
+                  <Ionicons name="radio-outline" size={16} color="#0055A0" />
+                ) : (
+                  <>
+                    <Feather name="link-2" size={13} color="#B84400" style={{ marginRight: 4 }} />
+                    <Text style={s.peerPillTextActive}>{state.peers.length}</Text>
+                  </>
+                )}
               </View>
             </>
           ) : (
@@ -909,12 +916,18 @@ const s = StyleSheet.create({
     color: '#003F80', fontSize: 19, fontWeight: '900', zIndex: 1,
   },
   peerPill: {
+    flexDirection: 'row', alignItems: 'center',
     backgroundColor: 'rgba(0,78,146,0.12)',
     borderRadius: 9999,
     borderWidth: 1, borderColor: 'rgba(0,119,182,0.32)',
-    paddingHorizontal: 12, paddingVertical: 4, zIndex: 1,
+    paddingHorizontal: 12, paddingVertical: 5, zIndex: 1,
+  },
+  peerPillActive: {
+    backgroundColor: 'rgba(221,107,32,0.14)',
+    borderColor: 'rgba(200,90,20,0.38)',
   },
   peerPillText: { color: '#0055A0', fontSize: 13, fontWeight: '700' },
+  peerPillTextActive: { color: '#B84400', fontSize: 13, fontWeight: '700' },
 
   content: { flex: 1 },
 
