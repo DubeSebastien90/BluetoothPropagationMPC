@@ -44,9 +44,14 @@ export function ScanScreen({ navigation }) {
 
     dispatch({ type: 'ADD_CONTACT', payload: contact });
 
+    // Send contact request over BLE so they auto-add us back
+    if (state.router) {
+      state.router.sendContactRequest(contact);
+    }
+
     Alert.alert(
       'Contact added',
-      `${contact.nickname} has been added to your contacts.`,
+      `${contact.nickname} added. They'll be notified automatically if in range.`,
       [{ text: 'OK', onPress: () => navigation.goBack() }]
     );
   };

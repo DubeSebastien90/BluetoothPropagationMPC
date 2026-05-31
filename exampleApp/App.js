@@ -2,19 +2,21 @@ import React, { useEffect, useState } from 'react';
 import { View, ActivityIndicator, Text, StyleSheet } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { AppProvider, useApp } from './src/state/AppContext';
-import { AppNavigator }        from './src/navigation/AppNavigator';
+import { AppProvider, useApp }       from './src/state/AppContext';
+import { AppNavigator }              from './src/navigation/AppNavigator';
 import { SetupScreen, IDENTITY_KEY } from './src/screens/SetupScreen';
-import { BleManager }          from './src/ble/BleManager';
-import { MeshRouter }          from './src/mesh/MeshRouter';
-import { PeerManager }         from './src/mesh/peerManager';
-import { RealCrypto }          from './src/crypto/RealCrypto';
+import { BleManager }                from './src/ble/BleManager';
+import { MeshRouter }                from './src/mesh/MeshRouter';
+import { PeerManager }               from './src/mesh/peerManager';
+import { RealCrypto }                from './src/crypto/RealCrypto';
+import { ContactNotifModal }         from './src/components/ContactNotifModal';
 
 const CONTACTS_KEY = 'contacts_v1';
 
 function AppInner() {
   const { state, dispatch } = useApp();
-  const [initError, setInitError] = useState(null);
+  const [initError, setInitError]     = useState(null);
+  const [contactNotif, setContactNotif] = useState(null);
 
   // ── Step 1: Initialise crypto on launch ─────────────────────────────────────
   useEffect(() => {
@@ -71,7 +73,13 @@ function AppInner() {
       state.identity,
       null,
       state.crypto,
-      (message) => dispatch({ type: 'ADD_MESSAGE', payload: message })
+      (message) => dispatch({ type: 'ADD_MESSAGE', payload: message }),
+      (contact, type) => {
+        console.log('[APP] contact_req/ack received — auto-adding:', contact.nickname, type);
+        state.crypto.registerPeerKey(contact.pubkey, contact.nickname);
+        dispatch({ type: 'ADD_CONTACT', payload: contact });
+        setContactNotif({ ...contact, type });
+      }
     );
 
     const transport = new BleManager({
@@ -110,7 +118,16 @@ function AppInner() {
   }
 
   if (!state.identity) return <SetupScreen />;
-  return <AppNavigator />;
+
+  return (
+    <>
+      <AppNavigator />
+      <ContactNotifModal
+        notif={contactNotif}
+        onDismiss={() => setContactNotif(null)}
+      />
+    </>
+  );
 }
 
 export default function App() {
