@@ -10,6 +10,7 @@ import { MeshRouter }                from './src/mesh/MeshRouter';
 import { PeerManager }               from './src/mesh/peerManager';
 import { RealCrypto }                from './src/crypto/RealCrypto';
 import { ContactNotifModal }         from './src/components/ContactNotifModal';
+import { MeetingPointTracker }       from './src/services/MeetingPointTracker';
 
 const CONTACTS_KEY = 'contacts_v1';
 
@@ -18,6 +19,8 @@ function AppInner() {
   const [initError, setInitError]       = useState(null);
   const [contactNotif, setContactNotif] = useState(null);
   const transportRef                    = useRef(null);
+  const stateRef                        = useRef(state);
+  useEffect(() => { stateRef.current = state; }, [state]);
 
   // ── Step 1: Initialise crypto on launch ─────────────────────────────────────
   useEffect(() => {
@@ -73,7 +76,27 @@ function AppInner() {
       state.identity,
       null,
       state.crypto,
-      (message) => dispatch({ type: 'ADD_MESSAGE', payload: message }),
+      (message) => {
+        dispatch({ type: 'ADD_MESSAGE', payload: message });
+        if (message.type === 'meetingpoint') {
+          try {
+            const coords = JSON.parse(message.body);
+            dispatch({
+              type: 'ADD_MEETING_POINT',
+              payload: {
+                id:               message.id,
+                contactPubkey:    message.fromId,
+                contactNickname:  message.from,
+                meetLat:          coords.meetLat / 1e6,
+                meetLng:          coords.meetLng / 1e6,
+                arrived:          false,
+              },
+            });
+          } catch (e) {
+            console.warn('[APP] failed to parse meeting point:', e.message);
+          }
+        }
+      },
       (contact, type) => {
         console.log('[APP] contact_req/ack received — auto-adding:', contact.nickname, type);
         state.crypto.registerPeerKey(contact.pubkey, contact.nickname);
@@ -95,7 +118,18 @@ function AppInner() {
     transportRef.current = transport;
     transport.start().catch(e => console.error('[BLE] start failed:', e));
 
-    return () => { transport.stop(); transportRef.current = null; };
+    const tracker = new MeetingPointTracker({
+      getState:  () => stateRef.current,
+      onArrived: (id)  => dispatch({ type: 'MARK_ARRIVED', payload: id }),
+      onMessage: (msg) => dispatch({ type: 'ADD_MESSAGE', payload: msg }),
+    });
+    tracker.start();
+
+    return () => {
+      transport.stop();
+      transportRef.current = null;
+      tracker.stop();
+    };
   }, [state.identity, state.crypto]);
 
   // ── Render ───────────────────────────────────────────────────────────────────

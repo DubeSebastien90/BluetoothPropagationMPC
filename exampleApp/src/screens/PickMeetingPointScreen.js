@@ -30,11 +30,12 @@ export function PickMeetingPointScreen({ route, navigation }) {
   const confirm = () => {
     if (!meetPoint || !myLoc || !state.router) return;
     const body = encodeMeetingPoint(meetPoint.lat, meetPoint.lng, myLoc.lat, myLoc.lng);
+    const msgId = Date.now().toString();
     state.router.send(contact.nickname, contact.pubkey, body, 'meetingpoint');
     dispatch({
       type: 'ADD_MESSAGE',
       payload: {
-        id:     Date.now().toString(),
+        id:     msgId,
         from:   state.identity.nickname,
         fromId: state.identity.pubkey,
         to:     contact.nickname,
@@ -42,6 +43,17 @@ export function PickMeetingPointScreen({ route, navigation }) {
         body,
         type:   'meetingpoint',
         ts:     Date.now(),
+      },
+    });
+    dispatch({
+      type: 'ADD_MEETING_POINT',
+      payload: {
+        id:              msgId,
+        contactPubkey:   contact.pubkey,
+        contactNickname: contact.nickname,
+        meetLat:         meetPoint.lat,
+        meetLng:         meetPoint.lng,
+        arrived:         false,
       },
     });
     navigation.goBack();

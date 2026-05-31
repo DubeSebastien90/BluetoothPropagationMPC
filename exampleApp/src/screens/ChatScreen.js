@@ -127,6 +127,16 @@ export function ChatScreen({ route, navigation }) {
       );
     }
 
+    if (item.type === 'arrival') {
+      const { message } = JSON.parse(item.body);
+      return (
+        <View style={[s.bubble, s.arrival]}>
+          <Text style={s.arrivalText}>{message}</Text>
+          <Text style={s.meta}>{new Date(item.ts).toLocaleTimeString()}</Text>
+        </View>
+      );
+    }
+
     return (
       <View style={[s.bubble, isMine ? s.mine : s.theirs]}>
         <Text style={s.body}>{item.body}</Text>
@@ -201,4 +211,6 @@ const s = StyleSheet.create({
   locationIcon:  { fontSize: 28, textAlign: 'center' },
   locationLabel: { color: '#fff', fontWeight: '600', fontSize: 14, textAlign: 'center', marginTop: 4 },
   locationHint:  { color: '#aaa', fontSize: 11, textAlign: 'center', marginTop: 2 },
+  arrival:       { backgroundColor: '#14532d', alignSelf: 'center', maxWidth: '90%' },
+  arrivalText:   { color: '#4ade80', fontWeight: '600', fontSize: 14, textAlign: 'center' },
 });
