@@ -19,8 +19,8 @@ export class RealCrypto {
     const stored = await AsyncStorage.getItem(STORAGE_KEY);
     if (stored) {
       const { pub, sec } = JSON.parse(stored);
-      this.publicKey = decodeBase64(pub);
-      this.secretKey = decodeBase64(sec);
+      this.publicKey = new Uint8Array(decodeBase64(pub));
+      this.secretKey = new Uint8Array(decodeBase64(sec));
       console.log(TAG, 'keypair loaded from storage, pubkey:', pub.slice(0, 12) + '...');
     } else {
       const pair = nacl.box.keyPair();
@@ -41,7 +41,7 @@ export class RealCrypto {
 
   registerPeerKey(pubkey, nickname) {
     const isNew = !this.peerKeys.has(pubkey);
-    this.peerKeys.set(pubkey, decodeBase64(pubkey));
+    this.peerKeys.set(pubkey, new Uint8Array(decodeBase64(pubkey)));
     this.peerNames.set(pubkey, nickname);
     if (isNew) console.log(TAG, 'registered peer key for', nickname, pubkey.slice(0, 12) + '...');
   }
@@ -55,9 +55,9 @@ export class RealCrypto {
   }
 
   encrypt(body, recipientPubKeyB64) {
-    const recipientKey = decodeBase64(recipientPubKeyB64);
+    const recipientKey = new Uint8Array(decodeBase64(recipientPubKeyB64));
     const nonce        = nacl.randomBytes(nacl.box.nonceLength);
-    const encrypted    = nacl.box(encodeUTF8(body), nonce, recipientKey, this.secretKey);
+    const encrypted    = nacl.box(new Uint8Array(encodeUTF8(body)), nonce, recipientKey, this.secretKey);
     const result       = encodeBase64(nonce) + '.' + encodeBase64(encrypted);
     console.log(TAG, 'encrypted message for', recipientPubKeyB64.slice(0, 12) + '...');
     return result;
@@ -65,9 +65,9 @@ export class RealCrypto {
 
   decrypt(payload, senderPubKeyB64) {
     const dot       = payload.indexOf('.');
-    const nonce     = decodeBase64(payload.slice(0, dot));
-    const box       = decodeBase64(payload.slice(dot + 1));
-    const senderKey = decodeBase64(senderPubKeyB64);
+    const nonce     = new Uint8Array(decodeBase64(payload.slice(0, dot)));
+    const box       = new Uint8Array(decodeBase64(payload.slice(dot + 1)));
+    const senderKey = new Uint8Array(decodeBase64(senderPubKeyB64));
     const decrypted = nacl.box.open(box, nonce, senderKey, this.secretKey);
     if (!decrypted) {
       console.warn(TAG, 'decryption failed — wrong key or tampered message');
