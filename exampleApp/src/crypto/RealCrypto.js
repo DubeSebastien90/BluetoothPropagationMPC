@@ -58,7 +58,7 @@ export class RealCrypto {
     const recipientKey = new Uint8Array(decodeBase64(recipientPubKeyB64));
     const nonce        = nacl.randomBytes(nacl.box.nonceLength);
     const encrypted    = nacl.box(new Uint8Array(encodeUTF8(body)), nonce, recipientKey, this.secretKey);
-    const result       = encodeBase64(nonce) + '.' + encodeBase64(encrypted);
+    const result       = encodeBase64(new Uint8Array(nonce)) + '.' + encodeBase64(new Uint8Array(encrypted));
     console.log(TAG, 'encrypted message for', recipientPubKeyB64.slice(0, 12) + '...');
     return result;
   }
@@ -74,6 +74,6 @@ export class RealCrypto {
       throw new Error('Decryption failed — wrong key or tampered message');
     }
     console.log(TAG, 'decrypted message from', senderPubKeyB64.slice(0, 12) + '...');
-    return decodeUTF8(decrypted);
+    return decodeUTF8(new Uint8Array(decrypted));
   }
 }
