@@ -2,7 +2,8 @@
   "expo": {
     "plugins": [
       "react-native-ble-plx",
-      "expo-location"
+      "expo-location",
+      "@rnmapbox/maps"
     ],
     "name": "exampleApp",
     "slug": "exampleApp",
