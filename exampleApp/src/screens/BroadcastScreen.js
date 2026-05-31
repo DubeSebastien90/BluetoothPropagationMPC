@@ -93,6 +93,7 @@ const s = StyleSheet.create({
   meta:    { color: '#555', fontSize: 11, marginTop: 4 },
   composer: {
     flexDirection: 'row', padding: 10,
+    paddingBottom: Platform.OS === 'android' ? 64 : 10,
     borderTopWidth: 1, borderColor: '#1a1a1a', gap: 8,
   },
   input: {
