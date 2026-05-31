@@ -167,7 +167,7 @@ function ContactsTab({ navigation }) {
 }
 
 const ct = StyleSheet.create({
-  listContent:    { paddingBottom: 8 },
+  listContent:    { paddingBottom: 16, paddingTop: 4 },
   emptyContainer: { flex: 1, justifyContent: 'center' },
   emptyBox:  { alignItems: 'center', padding: 40, gap: 12 },
   emptyImg:  { width: 210, height: 180, opacity: 0.88 },
@@ -191,14 +191,18 @@ const ct = StyleSheet.create({
 
   row: {
     flexDirection: 'row', alignItems: 'center',
-    paddingHorizontal: 10, paddingVertical: 8, gap: 8,
-    backgroundColor: 'rgba(255,255,255,0.93)',
-    borderBottomWidth: 1, borderBottomColor: 'rgba(100,180,230,0.20)',
+    paddingHorizontal: 16, paddingVertical: 13, gap: 12,
+    marginHorizontal: 12, marginVertical: 4,
+    backgroundColor: 'rgba(255,255,255,0.18)',
+    borderRadius: 16,
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.34)',
     position: 'relative', overflow: 'hidden',
+    shadowColor: '#001840', shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.10, shadowRadius: 6, elevation: 2,
   },
   rowGloss: {
     position: 'absolute', top: 0, left: 0, right: 0, height: '52%',
-    backgroundColor: 'rgba(255,255,255,0.48)',
+    backgroundColor: 'rgba(255,255,255,0.20)',
     pointerEvents: 'none',
   },
 
@@ -236,9 +240,9 @@ const ct = StyleSheet.create({
   },
 
   rowMid:    { flex: 1, minWidth: 0 },
-  rowName:   { color: '#003366', fontSize: 13, fontWeight: '800' },
-  rowSub:    { color: '#4488AA', fontSize: 11, marginTop: 1 },
-  rowChevron:{ color: '#88BBCC', fontSize: 18 },
+  rowName:   { color: '#fff', fontSize: 14, fontWeight: '800' },
+  rowSub:    { color: 'rgba(255,255,255,0.62)', fontSize: 11, marginTop: 1 },
+  rowChevron:{ color: 'rgba(255,255,255,0.50)', fontSize: 18 },
 });
 
 
@@ -669,6 +673,7 @@ function ProfileTab({ onDeleteAccount }) {
 
       {/* Delete */}
       <TouchableOpacity style={pr.deleteBtn} onPress={confirmDelete} activeOpacity={0.75}>
+        <View style={pr.deleteBtnGloss} />
         <Text style={pr.deleteBtnText}>Delete account</Text>
       </TouchableOpacity>
     </ScrollView>
@@ -733,12 +738,20 @@ const pr = StyleSheet.create({
   statActive: { color: '#27AE60', fontSize: 14, fontWeight: '800' },
 
   deleteBtn: {
-    marginTop: 10, paddingVertical: 11, paddingHorizontal: 28,
+    alignSelf: 'stretch', marginTop: 10,
+    paddingVertical: 16,
     borderRadius: 9999,
-    borderWidth: 1, borderColor: 'rgba(255,100,100,0.38)',
-    backgroundColor: 'rgba(255,80,80,0.07)',
+    backgroundColor: 'rgba(220,50,50,0.26)',
+    borderWidth: 1.5, borderColor: 'rgba(255,120,120,0.55)',
+    alignItems: 'center', overflow: 'hidden',
+    shadowColor: '#5a0000', shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.22, shadowRadius: 10, elevation: 4,
   },
-  deleteBtnText: { color: '#FF6B6B', fontSize: 14, fontWeight: '700' },
+  deleteBtnGloss: {
+    position: 'absolute', top: 0, left: 0, right: 0, height: '50%',
+    backgroundColor: 'rgba(255,255,255,0.18)',
+  },
+  deleteBtnText: { color: '#fff', fontSize: 16, fontWeight: '800', zIndex: 1 },
 });
 
 
