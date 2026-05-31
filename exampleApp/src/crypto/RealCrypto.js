@@ -2,7 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as nacl from 'tweetnacl';
 import * as naclUtil from 'tweetnacl-util';
 
-const { encodeBase64, decodeBase64, encodeUTF8, decodeUTF8 } = naclUtil;
+const { encodeBase64, decodeBase64 } = naclUtil;
 
 const STORAGE_KEY = 'keypair_v1';
 const TAG = '[CRYPTO]';
@@ -57,7 +57,7 @@ export class RealCrypto {
   encrypt(body, recipientPubKeyB64) {
     const recipientKey = new Uint8Array(decodeBase64(recipientPubKeyB64));
     const nonce        = nacl.randomBytes(nacl.box.nonceLength);
-    const encrypted    = nacl.box(new Uint8Array(encodeUTF8(body)), nonce, recipientKey, this.secretKey);
+    const encrypted    = nacl.box(new Uint8Array(new TextEncoder().encode(body)), nonce, recipientKey, this.secretKey);
     const result       = encodeBase64(new Uint8Array(nonce)) + '.' + encodeBase64(new Uint8Array(encrypted));
     console.log(TAG, 'encrypted message for', recipientPubKeyB64.slice(0, 12) + '...');
     return result;
@@ -74,6 +74,6 @@ export class RealCrypto {
       throw new Error('Decryption failed — wrong key or tampered message');
     }
     console.log(TAG, 'decrypted message from', senderPubKeyB64.slice(0, 12) + '...');
-    return decodeUTF8(new Uint8Array(decrypted));
+    return new TextDecoder().decode(new Uint8Array(decrypted));
   }
 }
