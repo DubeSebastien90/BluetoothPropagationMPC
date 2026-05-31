@@ -9,6 +9,8 @@ import { ScanScreen }            from '../screens/ScanScreen';
 import { BroadcastScreen }       from '../screens/BroadcastScreen';
 import { MapScreen }             from '../screens/MapScreen';
 import { PickMeetingPointScreen } from '../screens/PickMeetingPointScreen';
+import { TopicChatScreen }       from '../screens/TopicChatScreen';
+import { SubscribeTopicScreen }  from '../screens/SubscribeTopicScreen';
 import { useApp }                from '../state/AppContext';
 
 const Stack = createNativeStackNavigator();
@@ -79,6 +81,16 @@ export function AppNavigator({ onDeleteAccount }) {
           name="PickMeetingPoint"
           component={PickMeetingPointScreen}
           options={{ title: '🏴 Set Meeting Point' }}
+        />
+        <Stack.Screen
+          name="TopicChat"
+          component={TopicChatScreen}
+          options={({ route }) => ({ title: '# ' + route.params.topicName })}
+        />
+        <Stack.Screen
+          name="SubscribeTopic"
+          component={SubscribeTopicScreen}
+          options={{ title: 'Subscribe to Topic' }}
         />
       </Stack.Navigator>
     </NavigationContainer>

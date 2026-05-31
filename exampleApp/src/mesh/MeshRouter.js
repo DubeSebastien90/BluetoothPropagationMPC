@@ -23,6 +23,21 @@ export class MeshRouter {
     this.transport.onPacketReceived = null;
   }
 
+  sendTopicMessage(topicName, body) {
+    const packet = createPacket({
+      from:   this.identity.nickname,
+      fromId: this.identity.pubkey,
+      to:     'all',
+      toId:   'all',
+      body,
+      type:   'msg',
+      topic:  topicName,
+    });
+    console.log(TAG, 'topic message → [' + topicName + ']');
+    this.seen.set(packet.id, Date.now());
+    this.transport.sendPacket(packet);
+  }
+
   sendContactRequest(contact) {
     const body = JSON.stringify({ nickname: this.identity.nickname, pubkey: this.identity.pubkey });
     const packet = createPacket({
@@ -141,6 +156,7 @@ export class MeshRouter {
         body:   decryptedBody,
         type:   packet.type ?? 'msg',
         ts:     packet.ts,
+        ...(packet.topic && { topic: packet.topic }),
       });
     } else {
       console.log(TAG, 'packet not for me (to:', packet.to, ') — checking TTL...');
