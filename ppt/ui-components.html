@@ -1,0 +1,809 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>UI Components — Messenger App</title>
+<link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;700;800;900&display=swap" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/dist/tabler-icons.min.css" rel="stylesheet">
+<style>
+
+/* ============================================================
+   DESIGN TOKENS — source of truth for Claude Code
+   ============================================================ */
+:root {
+  /* Water palette */
+  --c-deep:      #004E92;
+  --c-mid:       #0077B6;
+  --c-bright:    #00B4D8;
+  --c-light:     #48CAE4;
+  --c-pale:      #ADE8F4;
+  --c-ice:       #CAF0F8;
+
+  /* Wii accents */
+  --c-yellow:    #FFD700;
+  --c-yellow-glow: #FFA500;
+
+  /* Wii neutrals */
+  --c-wii-bg:    #F4F4F4;
+  --c-wii-row:   #FFFFFF;
+  --c-wii-border:#E4E4E4;
+  --c-wii-gray:  #D0D0D0;
+  --c-wii-text:  #003366;
+  --c-wii-sub:   #4488AA;
+  --c-wii-muted: #88BBCC;
+
+  /* Liquid glass */
+  --glass-bg:    rgba(255, 255, 255, 0.15);
+  --glass-border:rgba(255, 255, 255, 0.52);
+  --glass-blur:  blur(14px);
+
+  /* App background gradient */
+  --bg-aurora: linear-gradient(170deg,
+    #004E92 0%, #0077B6 25%,
+    #00B4D8 55%, #48CAE4 78%,
+    #ADE8F4 100%);
+
+  /* Screen inner bg */
+  --bg-screen: linear-gradient(180deg,
+    #004E92 0%, #0077B6 18%,
+    #00B4D8 42%, #48CAE4 65%,
+    #ADE8F4 85%, #CAF0F8 100%);
+
+  /* Wii stripe texture */
+  --wii-stripe: repeating-linear-gradient(
+    to bottom,
+    transparent 0px, transparent 3px,
+    rgba(0,80,160,0.013) 3px, rgba(0,80,160,0.013) 6px
+  );
+
+  /* Typography */
+  --font: "M PLUS Rounded 1c", "Nunito", "Segoe UI", system-ui, sans-serif;
+
+  /* Radii */
+  --r-pill: 9999px;
+  --r-card: 16px;
+  --r-sm:   10px;
+
+  /* Liquid glass line — top white line signature */
+  --glass-line: linear-gradient(
+    to right, transparent, rgba(255,255,255,0.95), transparent
+  );
+}
+
+/* ============================================================
+   LAYOUT — demo page only
+   ============================================================ */
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: var(--font);
+  background: #1a1a2e;
+  color: #fff;
+  padding: 28px 20px 60px;
+}
+
+.page-title {
+  font-size: 11px; font-weight: 700;
+  letter-spacing: 0.1em; text-transform: uppercase;
+  opacity: 0.45; margin-bottom: 4px;
+}
+.page-subtitle {
+  font-size: 20px; font-weight: 900;
+  margin-bottom: 4px;
+}
+.page-desc {
+  font-size: 11px; opacity: 0.45; margin-bottom: 36px;
+}
+
+.section-label {
+  font-size: 10px; font-weight: 700;
+  letter-spacing: 0.1em; text-transform: uppercase;
+  opacity: 0.35; margin-bottom: 10px; margin-top: 32px;
+}
+
+.comp-row {
+  display: flex; gap: 12px; flex-wrap: wrap;
+  align-items: flex-start; margin-bottom: 8px;
+}
+
+.comp-name {
+  font-size: 9px; font-weight: 700;
+  opacity: 0.4; margin-top: 6px; margin-bottom: 2px;
+  letter-spacing: 0.06em; text-transform: uppercase;
+}
+
+/* ============================================================
+   COMPONENT: APP BACKGROUND
+   Usage: outermost shell of every screen
+   ============================================================ */
+.app-bg {
+  background: var(--bg-screen);
+  border-radius: 24px;
+  overflow: hidden;
+}
+
+/* ============================================================
+   COMPONENT: STATUS BAR
+   ============================================================ */
+.status-bar {
+  height: 20px;
+  background: rgba(0, 30, 80, 0.45);
+  display: flex; align-items: center;
+  justify-content: space-between;
+  padding: 0 12px;
+  font-family: var(--font);
+  font-size: 8px; font-weight: 700;
+  color: rgba(255,255,255,0.92);
+}
+
+/* ============================================================
+   COMPONENT: WII HEADER BAR
+   Translucent white, blue text, no opaque border
+   ============================================================ */
+.wii-header {
+  height: 40px;
+  background: linear-gradient(to bottom,
+    rgba(255,255,255,0.78),
+    rgba(200,235,255,0.62)
+  );
+  border-bottom: 1.5px solid rgba(100,180,240,0.42);
+  box-shadow: 0 2px 8px rgba(0,80,160,0.12),
+              inset 0 1px 0 rgba(255,255,255,0.8);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  display: flex; align-items: center;
+  justify-content: center;
+  padding: 0 10px; position: relative;
+}
+/* Top gloss reflet */
+.wii-header::before {
+  content: '';
+  position: absolute; top: 0; left: 0; right: 0; height: 50%;
+  background: linear-gradient(to bottom,
+    rgba(255,255,255,0.55), rgba(255,255,255,0));
+  pointer-events: none;
+}
+.wii-header-title {
+  font-family: var(--font);
+  font-size: 13px; font-weight: 800;
+  color: var(--c-deep);
+  position: relative; z-index: 1;
+}
+.wii-header-back {
+  position: absolute; left: 10px; z-index: 1;
+  font-size: 8px; font-weight: 700;
+  color: var(--c-mid);
+  font-family: var(--font);
+}
+.wii-header-right {
+  position: absolute; right: 10px; z-index: 1;
+}
+
+/* ============================================================
+   COMPONENT: CONTACT ROW
+   Wii-style white row with blue-tinted hover
+   ============================================================ */
+.contact-row {
+  display: flex; align-items: center;
+  padding: 7px 10px; gap: 8px;
+  background: linear-gradient(to bottom,
+    rgba(255,255,255,0.92),
+    rgba(225,245,255,0.82)
+  );
+  background-image: var(--wii-stripe);
+  border-bottom: 1px solid rgba(100,180,230,0.18);
+  cursor: pointer;
+  transition: background 170ms ease, border-color 170ms ease,
+              box-shadow 170ms ease;
+  position: relative; overflow: hidden;
+}
+/* Top gloss */
+.contact-row::before {
+  content: ''; position: absolute;
+  top: 0; left: 0; right: 0; height: 50%;
+  background: linear-gradient(to bottom,
+    rgba(255,255,255,0.48), rgba(255,255,255,0));
+  pointer-events: none;
+}
+.contact-row:hover {
+  background: linear-gradient(to bottom,
+    rgba(200,240,255,0.95),
+    rgba(160,220,255,0.85)
+  );
+  border-color: var(--c-yellow);
+  box-shadow: 0 0 0 1px var(--c-yellow),
+              0 0 8px rgba(255,165,0,0.22);
+  z-index: 1;
+}
+.contact-name {
+  font-family: var(--font);
+  font-size: 13px; font-weight: 800;
+  color: var(--c-wii-text);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.contact-preview {
+  font-family: var(--font);
+  font-size: 11px; color: var(--c-wii-sub);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.contact-time {
+  font-family: var(--font);
+  font-size: 10px; color: var(--c-wii-muted);
+  font-weight: 700; flex-shrink: 0;
+}
+
+/* ============================================================
+   COMPONENT: UNREAD BADGE
+   ============================================================ */
+.badge {
+  min-width: 18px; height: 18px;
+  border-radius: var(--r-pill);
+  padding: 0 4px;
+  background: linear-gradient(to bottom, #FF4400, #CC1100);
+  border: 1.5px solid rgba(255,255,255,0.6);
+  box-shadow: 0 1px 4px rgba(180,0,0,0.4);
+  font-size: 9px; font-weight: 800; color: white;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+
+/* ============================================================
+   COMPONENT: LIQUID GLASS ORB (avatar)
+   Transparent, tinted by color class, backdrop-blur
+   ============================================================ */
+.orb {
+  border-radius: 50%;
+  position: relative;
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--font); font-weight: 800;
+  color: white; text-shadow: 0 1px 2px rgba(0,0,60,0.45);
+  flex-shrink: 0;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  border: 1px solid rgba(255,255,255,0.48);
+  box-shadow: 0 2px 8px rgba(0,60,140,0.2),
+              inset 0 1px 0 rgba(255,255,255,0.28);
+}
+/* White line top — liquid glass signature */
+.orb::before {
+  content: ''; position: absolute;
+  top: 0; left: 10%; right: 10%; height: 1.5px;
+  background: var(--glass-line);
+  border-radius: var(--r-pill);
+  pointer-events: none; z-index: 2;
+}
+/* Soft top reflet */
+.orb::after {
+  content: ''; position: absolute;
+  top: 1px; left: 0; right: 0; height: 42%;
+  background: linear-gradient(to bottom,
+    rgba(255,255,255,0.28), rgba(255,255,255,0));
+  border-radius: 50% 50% 0 0;
+  pointer-events: none; z-index: 1;
+}
+.orb span { position: relative; z-index: 3; }
+
+/* Sizes */
+.orb-xs { width: 22px; height: 22px; font-size: 8px; }
+.orb-sm { width: 32px; height: 32px; font-size: 12px; }
+.orb-md { width: 40px; height: 40px; font-size: 15px; }
+.orb-lg { width: 58px; height: 58px; font-size: 20px; }
+
+/* Color tints — semi-transparent so bg shows through */
+.orb-red    { background: rgba(200, 50,  20,  0.38); }
+.orb-green  { background: rgba( 30,150,  50,  0.38); }
+.orb-purple { background: rgba(130, 40, 220,  0.38); }
+.orb-orange { background: rgba(220,130,   0,  0.38); }
+.orb-teal   { background: rgba(  0,160, 160,  0.38); }
+.orb-blue   { background: rgba(  0,100, 180,  0.38); }
+
+/* ============================================================
+   COMPONENT: CHAT BUBBLE — received
+   Wii white panel with top gloss
+   ============================================================ */
+.bubble-them {
+  max-width: 72%; padding: 7px 11px;
+  border-radius: 14px 14px 14px 4px;
+  background: linear-gradient(to bottom, #FFFFFF, #EEF7FF);
+  border: 1.5px solid rgba(120,190,230,0.38);
+  color: var(--c-wii-text);
+  font-family: var(--font); font-size: 13px; line-height: 1.4;
+  box-shadow: 0 2px 6px rgba(0,80,160,0.09),
+              inset 0 1px 0 rgba(255,255,255,0.9);
+  position: relative; overflow: hidden;
+}
+.bubble-them::before {
+  content: ''; position: absolute;
+  top: 0; left: 0; right: 0; height: 50%;
+  background: linear-gradient(to bottom,
+    rgba(255,255,255,0.52), rgba(255,255,255,0));
+  pointer-events: none;
+}
+
+/* ============================================================
+   COMPONENT: CHAT BUBBLE — sent
+   Blue water gradient, subtle reflet
+   ============================================================ */
+.bubble-me {
+  max-width: 72%; padding: 7px 11px;
+  border-radius: 14px 14px 4px 14px;
+  background: linear-gradient(135deg, var(--c-deep), var(--c-bright));
+  border: 1px solid rgba(0,150,210,0.32);
+  color: white; text-shadow: 0 1px 2px rgba(0,40,100,0.38);
+  font-family: var(--font); font-size: 13px; line-height: 1.4;
+  box-shadow: 0 2px 8px rgba(0,100,180,0.22),
+              inset 0 1px 0 rgba(255,255,255,0.22);
+  position: relative; overflow: hidden;
+}
+.bubble-me::before {
+  content: ''; position: absolute;
+  top: 0; left: 5%; right: 5%; height: 46%;
+  background: linear-gradient(to bottom,
+    rgba(255,255,255,0.25), rgba(255,255,255,0));
+  border-radius: var(--r-pill);
+  pointer-events: none;
+}
+
+/* ============================================================
+   COMPONENT: WII INPUT BAR
+   Gray gradient bar, always at bottom of chat screens
+   ============================================================ */
+.wii-input-bar {
+  height: 40px;
+  background: linear-gradient(to bottom,
+    rgba(210,235,255,0.92),
+    rgba(185,220,250,0.88)
+  );
+  border-top: 1px solid rgba(100,170,220,0.35);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.65);
+  display: flex; align-items: center;
+  padding: 0 8px; gap: 6px;
+}
+.wii-text-field {
+  flex: 1; height: 24px;
+  border-radius: 12px;
+  background: linear-gradient(to bottom,
+    rgba(255,255,255,0.88),
+    rgba(225,245,255,0.82)
+  );
+  border: 1px solid rgba(100,170,220,0.4);
+  box-shadow: inset 0 1px 3px rgba(0,80,160,0.09);
+  padding: 0 10px;
+  font-family: var(--font); font-size: 11px;
+  color: var(--c-wii-sub);
+  display: flex; align-items: center;
+}
+
+/* ============================================================
+   COMPONENT: LIQUID GLASS BUTTON (primary action)
+   Transparent, white border, top white line, backdrop-blur
+   ============================================================ */
+.btn-glass {
+  position: relative; overflow: hidden;
+  padding: 9px 18px; border-radius: var(--r-pill);
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  box-shadow: 0 4px 12px rgba(0,60,140,0.18),
+              inset 0 1px 0 rgba(255,255,255,0.38),
+              inset 0 -1px 0 rgba(0,60,140,0.08);
+  font-family: var(--font);
+  font-size: 13px; font-weight: 800;
+  color: var(--c-deep);
+  text-shadow: 0 1px 0 rgba(255,255,255,0.55);
+  cursor: pointer;
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  transition: all 180ms ease;
+  display: inline-flex; align-items: center; gap: 6px;
+}
+/* Top white line */
+.btn-glass::before {
+  content: ''; position: absolute;
+  top: 0; left: 8%; right: 8%; height: 1.5px;
+  background: var(--glass-line);
+  border-radius: var(--r-pill);
+}
+/* Top reflet doux */
+.btn-glass::after {
+  content: ''; position: absolute;
+  top: 1px; left: 0; right: 0; height: 46%;
+  background: linear-gradient(to bottom,
+    rgba(255,255,255,0.26), rgba(255,255,255,0));
+  border-radius: var(--r-pill) var(--r-pill) 0 0;
+}
+.btn-glass:hover {
+  background: rgba(255,255,255,0.22);
+  border-color: var(--c-yellow);
+  box-shadow: 0 0 14px var(--c-yellow-glow),
+              0 4px 12px rgba(0,60,140,0.2),
+              inset 0 1px 0 rgba(255,255,255,0.38);
+}
+
+/* ============================================================
+   COMPONENT: SEND BUTTON (small circular glass)
+   ============================================================ */
+.btn-send {
+  width: 26px; height: 26px;
+  border-radius: 50%; flex-shrink: 0;
+  background: rgba(255,255,255,0.22);
+  border: 1px solid rgba(255,255,255,0.58);
+  box-shadow: 0 2px 6px rgba(0,80,160,0.15),
+              inset 0 1px 0 rgba(255,255,255,0.45);
+  color: var(--c-deep); font-size: 14px; font-weight: 800;
+  display: flex; align-items: center; justify-content: center;
+  position: relative; overflow: hidden;
+  cursor: pointer;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  transition: all 160ms;
+}
+.btn-send::before {
+  content: ''; position: absolute;
+  top: 0; left: 12%; right: 12%; height: 1.5px;
+  background: var(--glass-line);
+  border-radius: var(--r-pill);
+}
+.btn-send:hover {
+  border-color: var(--c-yellow);
+  box-shadow: 0 0 8px var(--c-yellow-glow);
+}
+
+/* ============================================================
+   COMPONENT: BOTTOM NAV BAR
+   Blue-tinted water glass, circular Wii-style buttons
+   ============================================================ */
+.bottom-nav {
+  height: 52px;
+  background: linear-gradient(to bottom,
+    rgba(160,215,245,0.92),
+    rgba(120,190,230,0.88)
+  );
+  border-top: 1px solid rgba(80,150,210,0.32);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.5),
+              0 -1px 4px rgba(0,60,120,0.07);
+  display: flex; align-items: center;
+}
+.nav-item {
+  flex: 1;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 2px; cursor: pointer; padding: 3px 0;
+  font-family: var(--font);
+  font-size: 9px; font-weight: 700;
+  color: rgba(0,60,120,0.6);
+  transition: color 150ms;
+}
+.nav-item.active { color: var(--c-deep); }
+
+/* Circular Wii button */
+.nav-btn {
+  width: 32px; height: 32px; border-radius: 50%;
+  background: rgba(255,255,255,0.2);
+  border: 1px solid rgba(255,255,255,0.55);
+  box-shadow: 0 2px 6px rgba(0,60,120,0.12),
+              inset 0 1px 0 rgba(255,255,255,0.42);
+  display: flex; align-items: center; justify-content: center;
+  position: relative; overflow: hidden;
+  transition: all 180ms;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  font-size: 17px; color: rgba(0,60,120,0.65);
+}
+/* Top white line */
+.nav-btn::before {
+  content: ''; position: absolute;
+  top: 0; left: 14%; right: 14%; height: 1.5px;
+  background: var(--glass-line);
+  border-radius: var(--r-pill);
+}
+/* Top reflet */
+.nav-btn::after {
+  content: ''; position: absolute;
+  top: 1px; left: 0; right: 0; height: 44%;
+  background: linear-gradient(to bottom,
+    rgba(255,255,255,0.28), rgba(255,255,255,0));
+  border-radius: 50% 50% 0 0;
+}
+/* Active state — jaune Wii */
+.nav-item.active .nav-btn {
+  border-color: var(--c-yellow);
+  box-shadow: 0 0 0 1.5px var(--c-yellow),
+              0 0 10px var(--c-yellow-glow),
+              0 2px 5px rgba(0,0,0,0.1);
+  color: var(--c-deep);
+}
+
+/* ============================================================
+   COMPONENT: QR PANEL (Add Friend screen)
+   Liquid glass card, white border
+   ============================================================ */
+.qr-panel {
+  padding: 14px;
+  background: rgba(255,255,255,0.16);
+  border: 1px solid rgba(255,255,255,0.52);
+  border-radius: var(--r-card);
+  box-shadow: 0 4px 18px rgba(0,80,160,0.14),
+              inset 0 1px 0 rgba(255,255,255,0.38);
+  display: flex; flex-direction: column;
+  align-items: center; gap: 8px;
+  position: relative; overflow: hidden;
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+}
+.qr-panel::before {
+  content: ''; position: absolute;
+  top: 0; left: 8%; right: 8%; height: 1.5px;
+  background: var(--glass-line);
+  border-radius: var(--r-pill);
+}
+.qr-panel::after {
+  content: ''; position: absolute;
+  top: 1px; left: 0; right: 0; height: 38%;
+  background: linear-gradient(to bottom,
+    rgba(255,255,255,0.18), rgba(255,255,255,0));
+  border-radius: var(--r-card) var(--r-card) 0 0;
+}
+
+/* ============================================================
+   ANIMATIONS
+   ============================================================ */
+@keyframes floatIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0);    }
+}
+@keyframes slideInLeft {
+  from { opacity: 0; transform: translateX(-10px); }
+  to   { opacity: 1; transform: translateX(0);     }
+}
+@keyframes orbFloat {
+  0%, 100% { transform: translateY(0);   }
+  50%       { transform: translateY(-3px); }
+}
+@keyframes navSelect {
+  0%   { transform: scale(1);    }
+  40%  { transform: scale(1.18); }
+  100% { transform: scale(1);    }
+}
+@keyframes popIn {
+  0%   { opacity: 0; transform: scale(0.6); }
+  70%  {             transform: scale(1.1); }
+  100% { opacity: 1; transform: scale(1);   }
+}
+
+/* Usage:
+  .contact-row      → animation: slideInLeft 0.3s ease both;
+  .orb-sm / .orb-lg → animation: orbFloat 3.2s ease-in-out infinite;
+  .badge            → animation: popIn 0.35s ease both;
+  .nav-item.active .nav-btn → animation: navSelect 0.35s ease;
+  screens           → animation: floatIn 0.4s ease both;
+*/
+
+/* ============================================================
+   DEMO LAYOUT BELOW — not part of component library
+   ============================================================ */
+.demo-bg {
+  background: linear-gradient(170deg,
+    #004E92 0%, #0077B6 25%,
+    #00B4D8 55%, #48CAE4 78%, #ADE8F4 100%);
+  border-radius: 20px;
+  padding: 16px;
+  margin-bottom: 8px;
+}
+.demo-white {
+  background: linear-gradient(to bottom,
+    rgba(255,255,255,0.92), rgba(220,242,255,0.82));
+  background-image: var(--wii-stripe);
+  padding: 8px;
+}
+.chat-stack {
+  display: flex; flex-direction: column; gap: 6px; padding: 8px;
+  background: linear-gradient(to bottom,
+    rgba(255,255,255,0.88), rgba(210,240,255,0.78));
+  background-image: var(--wii-stripe);
+}
+.bubble-row { display: flex; }
+.bubble-row.me  { justify-content: flex-end; }
+.bubble-row.them{ justify-content: flex-start; }
+
+hr { border: none; border-top: 1px solid rgba(255,255,255,0.1); margin: 28px 0; }
+</style>
+</head>
+<body>
+
+<p class="page-title">Claude Code — Component Reference</p>
+<p class="page-subtitle">UI Components — Messenger App</p>
+<p class="page-desc">Wii UI · Frutiger Aero · Liquid Glass · Palette eau XP. Chaque section montre le composant en contexte avec son CSS token.</p>
+
+<hr>
+
+<!-- STATUS BAR + HEADER -->
+<p class="section-label">Status Bar + Header</p>
+<p class="comp-name">wii-header / status-bar</p>
+<div style="border-radius:14px;overflow:hidden;max-width:320px;margin-bottom:4px">
+  <div class="status-bar"><span>9:41</span><span>▮▮▮</span></div>
+  <div class="wii-header">
+    <span class="wii-header-title">Messages</span>
+    <div class="wii-header-right">
+      <div class="orb orb-xs orb-blue"><span>A</span></div>
+    </div>
+  </div>
+  <div class="wii-header" style="margin-top:2px">
+    <span class="wii-header-back">‹ Retour</span>
+    <span class="wii-header-title">Sébastien</span>
+    <div class="wii-header-right"><div class="orb orb-xs orb-green"><span>S</span></div></div>
+  </div>
+</div>
+
+<hr>
+
+<!-- ORBS -->
+<p class="section-label">Liquid Glass Orbs — Avatars</p>
+<p class="comp-name">orb · orb-{xs|sm|md|lg} · orb-{red|green|purple|orange|teal|blue}</p>
+<div class="demo-bg">
+  <div class="comp-row" style="align-items:center">
+    <div class="orb orb-xs orb-blue" style="animation:orbFloat 3s ease-in-out infinite"><span>A</span></div>
+    <div class="orb orb-sm orb-red" style="animation:orbFloat 3.2s ease-in-out infinite"><span>M</span></div>
+    <div class="orb orb-sm orb-green" style="animation:orbFloat 3.4s ease-in-out infinite"><span>S</span></div>
+    <div class="orb orb-sm orb-purple" style="animation:orbFloat 3.1s ease-in-out infinite"><span>J</span></div>
+    <div class="orb orb-sm orb-orange" style="animation:orbFloat 2.9s ease-in-out infinite"><span>C</span></div>
+    <div class="orb orb-sm orb-teal" style="animation:orbFloat 3.3s ease-in-out infinite"><span>F</span></div>
+    <div class="orb orb-md orb-blue" style="animation:orbFloat 3s ease-in-out infinite"><span>A</span></div>
+    <div class="orb orb-lg orb-blue" style="animation:orbFloat 3s ease-in-out infinite"><span>A</span></div>
+  </div>
+</div>
+
+<hr>
+
+<!-- CONTACT ROWS -->
+<p class="section-label">Contact Rows — Messages Screen</p>
+<p class="comp-name">contact-row · contact-name · contact-preview · contact-time · badge</p>
+<div style="border-radius:14px;overflow:hidden;max-width:320px">
+  <div class="contact-row" style="animation:slideInLeft 0.3s ease both">
+    <div class="orb orb-sm orb-red" style="animation:orbFloat 3.2s ease-in-out infinite"><span>M</span></div>
+    <div style="flex:1;min-width:0">
+      <div class="contact-name">Maude</div>
+      <div class="contact-preview">t'as vu le nouveau spot ?</div>
+    </div>
+    <div style="display:flex;flex-direction:column;align-items:flex-end;gap:3px">
+      <span class="contact-time">14:32</span>
+      <div class="badge" style="animation:popIn 0.35s ease both">2</div>
+    </div>
+  </div>
+  <div class="contact-row" style="animation:slideInLeft 0.3s ease 0.05s both">
+    <div class="orb orb-sm orb-green" style="animation:orbFloat 3.4s ease-in-out infinite"><span>S</span></div>
+    <div style="flex:1;min-width:0">
+      <div class="contact-name">Sébastien</div>
+      <div class="contact-preview">on se rejoint à quelle heure</div>
+    </div>
+    <span class="contact-time">13:18</span>
+  </div>
+  <div class="contact-row" style="animation:slideInLeft 0.3s ease 0.10s both">
+    <div class="orb orb-sm orb-purple" style="animation:orbFloat 3.1s ease-in-out infinite"><span>J</span></div>
+    <div style="flex:1;min-width:0">
+      <div class="contact-name">Jérémy</div>
+      <div class="contact-preview">check le repo j'ai push</div>
+    </div>
+    <span class="contact-time">hier</span>
+  </div>
+</div>
+
+<hr>
+
+<!-- BUBBLES -->
+<p class="section-label">Chat Bubbles</p>
+<p class="comp-name">bubble-them · bubble-me</p>
+<div class="chat-stack" style="border-radius:14px;max-width:320px">
+  <div class="bubble-row them"><div class="bubble-them">Yo t'es où là?</div></div>
+  <div class="bubble-row me"><div class="bubble-me">Au café sur St-Jean</div></div>
+  <div class="bubble-row them"><div class="bubble-them">Je rappliche dans 10</div></div>
+  <div class="bubble-row me"><div class="bubble-me">Ok no worries 👍</div></div>
+  <div class="bubble-row them"><div class="bubble-them">T'as ton ordi?</div></div>
+</div>
+
+<hr>
+
+<!-- INPUT BAR -->
+<p class="section-label">Input Bar</p>
+<p class="comp-name">wii-input-bar · wii-text-field · btn-send</p>
+<div style="border-radius:14px;overflow:hidden;max-width:320px">
+  <div class="wii-input-bar">
+    <div class="wii-text-field">Message...</div>
+    <div class="btn-send">›</div>
+  </div>
+  <div class="wii-input-bar" style="margin-top:2px">
+    <div class="wii-text-field">Diffuser à tous...</div>
+    <div class="btn-send">›</div>
+  </div>
+</div>
+
+<hr>
+
+<!-- BUTTONS -->
+<p class="section-label">Liquid Glass Buttons</p>
+<p class="comp-name">btn-glass — hover pour voir le glow jaune Wii</p>
+<div class="demo-bg">
+  <div class="comp-row">
+    <button class="btn-glass">
+      <i class="ti ti-camera"></i> Scanner un ami
+    </button>
+    <button class="btn-glass">
+      <i class="ti ti-qrcode"></i> Mon code
+    </button>
+  </div>
+</div>
+
+<hr>
+
+<!-- QR PANEL -->
+<p class="section-label">QR Panel — Add Friend Screen</p>
+<p class="comp-name">qr-panel</p>
+<div class="demo-bg">
+  <div class="qr-panel" style="max-width:160px;margin:0 auto">
+    <div style="width:80px;height:80px;border-radius:10px;background:rgba(255,255,255,0.9);border:1px solid rgba(100,170,220,0.35);padding:9px;display:grid;grid-template-columns:repeat(7,1fr);gap:1.5px;position:relative;z-index:1">
+      <div style="grid-column:1/4;grid-row:1/4;background:#004E92;border-radius:3px"></div>
+      <div style="grid-column:2/3;grid-row:2/3;background:white;border-radius:2px"></div>
+      <div style="grid-column:5/8;grid-row:1/4;background:#004E92;border-radius:3px"></div>
+      <div style="grid-column:6/7;grid-row:2/3;background:white;border-radius:2px"></div>
+      <div style="grid-column:1/4;grid-row:5/8;background:#004E92;border-radius:3px"></div>
+      <div style="grid-column:2/3;grid-row:6/7;background:white;border-radius:2px"></div>
+      <div style="grid-column:5;grid-row:4;background:#0077B6;border-radius:1px"></div>
+      <div style="grid-column:7;grid-row:5;background:#0077B6;border-radius:1px"></div>
+    </div>
+    <span style="font-size:10px;font-weight:700;color:rgba(255,255,255,0.8);position:relative;z-index:1">Montre à un ami</span>
+  </div>
+</div>
+
+<hr>
+
+<!-- BOTTOM NAV -->
+<p class="section-label">Bottom Navigation Bar</p>
+<p class="comp-name">bottom-nav · nav-item · nav-btn · nav-item.active → glow jaune</p>
+<div style="border-radius:14px;overflow:hidden;max-width:320px">
+  <div class="bottom-nav">
+    <div class="nav-item active">
+      <div class="nav-btn" style="animation:navSelect 0.35s ease">
+        <i class="ti ti-message-2"></i>
+      </div>
+      <span>Msgs</span>
+    </div>
+    <div class="nav-item">
+      <div class="nav-btn"><i class="ti ti-users"></i></div>
+      <span>Amis</span>
+    </div>
+    <div class="nav-item">
+      <div class="nav-btn"><i class="ti ti-antenna-bars-5"></i></div>
+      <span>Nearby</span>
+    </div>
+    <div class="nav-item">
+      <div class="nav-btn"><i class="ti ti-user"></i></div>
+      <span>Profil</span>
+    </div>
+  </div>
+</div>
+
+<hr>
+
+<!-- TOKEN SUMMARY -->
+<p class="section-label">Token Summary — copier dans globals.css</p>
+<div style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);border-radius:12px;padding:16px;font-size:10px;font-family:'Courier New',monospace;color:rgba(255,255,255,0.7);line-height:1.8;overflow-x:auto">
+--c-deep:       #004E92  /* eau profonde, texte header */<br>
+--c-mid:        #0077B6  /* bleu principal */<br>
+--c-bright:     #00B4D8  /* ciel aquatique */<br>
+--c-light:      #48CAE4  /* surface eau */<br>
+--c-pale:       #ADE8F4  /* eau peu profonde */<br>
+--c-ice:        #CAF0F8  /* glace */<br>
+--c-yellow:     #FFD700  /* Wii hover / actif */<br>
+--c-yellow-glow:#FFA500  /* glow jaune */<br>
+--c-wii-text:   #003366  /* texte sur fond blanc */<br>
+--c-wii-sub:    #4488AA  /* texte secondaire */<br>
+--c-wii-muted:  #88BBCC  /* timestamps */<br>
+--glass-bg:     rgba(255,255,255,0.15)<br>
+--glass-border: rgba(255,255,255,0.52)<br>
+--glass-blur:   blur(14px)<br>
+--font: "M PLUS Rounded 1c", "Nunito", "Segoe UI", sans-serif<br>
+--bg-screen: linear-gradient(180deg, #004E92 0%, #0077B6 18%, #00B4D8 42%, #48CAE4 65%, #ADE8F4 85%, #CAF0F8 100%)
+</div>
+
+</body>
+</html>
