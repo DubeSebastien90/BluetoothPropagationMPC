@@ -1,76 +1,37 @@
 import React from 'react';
-import { TouchableOpacity, Text, StyleSheet } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { ContactsScreen }        from '../screens/ContactsScreen';
-import { ChatScreen }            from '../screens/ChatScreen';
-import { ProfileScreen }         from '../screens/ProfileScreen';
-import { ScanScreen }            from '../screens/ScanScreen';
-import { BroadcastScreen }       from '../screens/BroadcastScreen';
-import { MapScreen }             from '../screens/MapScreen';
+import { MainTabScreen }          from '../screens/MainTabScreen';
+import { ChatScreen }             from '../screens/ChatScreen';
+import { MapScreen }              from '../screens/MapScreen';
 import { PickMeetingPointScreen } from '../screens/PickMeetingPointScreen';
 import { TopicChatScreen }       from '../screens/TopicChatScreen';
 import { SubscribeTopicScreen }  from '../screens/SubscribeTopicScreen';
-import { useApp }                from '../state/AppContext';
 
 const Stack = createNativeStackNavigator();
 
 const screenOptions = {
-  headerStyle:      { backgroundColor: '#0a0a1a' },
-  headerTintColor:  '#fff',
-  headerTitleStyle: { fontWeight: '600' },
-  contentStyle:     { backgroundColor: '#0a0a1a' },
+  headerStyle: { backgroundColor: 'rgba(255,255,255,0.92)' },
+  headerTintColor:  '#004E92',
+  headerTitleStyle: { fontWeight: '800', fontSize: 17, color: '#004E92' },
+  headerShadowVisible: true,
+  contentStyle: { backgroundColor: '#004E92' },
 };
 
 export function AppNavigator({ onDeleteAccount }) {
-  const { state } = useApp();
-
   return (
     <NavigationContainer>
       <Stack.Navigator screenOptions={screenOptions}>
-        <Stack.Screen
-          name="Contacts"
-          component={ContactsScreen}
-          options={({ navigation }) => ({
-            title: state.identity?.nickname ?? 'Contacts',
-            headerRight: () => (
-              <TouchableOpacity
-                onPress={() => navigation.navigate('Profile')}
-                style={s.btn}
-              >
-                <Text style={s.btnText}>My QR</Text>
-              </TouchableOpacity>
-            ),
-            headerLeft: () => (
-              <TouchableOpacity
-                onPress={() => navigation.navigate('Scan')}
-                style={s.btn}
-              >
-                <Text style={s.btnText}>Scan</Text>
-              </TouchableOpacity>
-            ),
-          })}
-        />
+        {/* Main shell — owns its own header & tab bar */}
+        <Stack.Screen name="Main" options={{ headerShown: false }}>
+          {(props) => <MainTabScreen {...props} onDeleteAccount={onDeleteAccount} />}
+        </Stack.Screen>
+
+        {/* Stack screens pushed from within tabs */}
         <Stack.Screen
           name="Chat"
           component={ChatScreen}
           options={({ route }) => ({ title: route.params.contact.nickname })}
-        />
-        <Stack.Screen
-          name="Broadcast"
-          component={BroadcastScreen}
-          options={{ title: '📡 Broadcast' }}
-        />
-        <Stack.Screen
-          name="Profile"
-          options={{ title: 'My Profile' }}
-        >
-          {(props) => <ProfileScreen {...props} onDeleteAccount={onDeleteAccount} />}
-        </Stack.Screen>
-        <Stack.Screen
-          name="Scan"
-          component={ScanScreen}
-          options={{ title: 'Scan QR Code' }}
         />
         <Stack.Screen
           name="Map"
@@ -96,8 +57,3 @@ export function AppNavigator({ onDeleteAccount }) {
     </NavigationContainer>
   );
 }
-
-const s = StyleSheet.create({
-  btn:     { paddingHorizontal: 4 },
-  btnText: { color: '#2563eb', fontSize: 15, fontWeight: '600' },
-});

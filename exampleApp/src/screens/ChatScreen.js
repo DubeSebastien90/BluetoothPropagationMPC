@@ -3,6 +3,8 @@ import {
   View, Text, FlatList, TextInput,
   TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, Alert,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Location from 'expo-location';
 import { useApp } from '../state/AppContext';
 import { encodeLocation } from '../utils/locationMessage';
@@ -12,6 +14,7 @@ export function ChatScreen({ route, navigation }) {
   const { state, dispatch } = useApp();
   const [input, setInput] = useState('');
   const listRef = useRef(null);
+  const insets = useSafeAreaInsets();
 
   const myPubkey = state.identity?.pubkey;
 
@@ -95,12 +98,19 @@ export function ChatScreen({ route, navigation }) {
               lat:  coords.lat / 1e6,
               lng:  coords.lng / 1e6,
             })}
+            style={s.specialCard}
           >
-            <Text style={s.locationIcon}>📍</Text>
-            <Text style={s.locationLabel}>Shared a location</Text>
-            <Text style={s.locationHint}>Tap to open map</Text>
+            <Text style={s.specialIcon}>📍</Text>
+            <Text style={isMine ? s.specialLabel : s.specialLabelTheirs}>
+              Shared a location
+            </Text>
+            <Text style={isMine ? s.specialHint : s.specialHintTheirs}>
+              Tap to open map
+            </Text>
           </TouchableOpacity>
-          <Text style={s.meta}>{item.from} · {new Date(item.ts).toLocaleTimeString()}</Text>
+          <Text style={isMine ? s.meta : s.metaTheirs}>
+            {item.from} · {new Date(item.ts).toLocaleTimeString()}
+          </Text>
         </View>
       );
     }
@@ -117,12 +127,19 @@ export function ChatScreen({ route, navigation }) {
               fromLat: coords.fromLat / 1e6,
               fromLng: coords.fromLng / 1e6,
             })}
+            style={s.specialCard}
           >
-            <Text style={s.locationIcon}>🏴</Text>
-            <Text style={s.locationLabel}>Proposed a meeting point</Text>
-            <Text style={s.locationHint}>Tap to open map</Text>
+            <Text style={s.specialIcon}>🏴</Text>
+            <Text style={isMine ? s.specialLabel : s.specialLabelTheirs}>
+              Proposed a meeting point
+            </Text>
+            <Text style={isMine ? s.specialHint : s.specialHintTheirs}>
+              Tap to open map
+            </Text>
           </TouchableOpacity>
-          <Text style={s.meta}>{item.from} · {new Date(item.ts).toLocaleTimeString()}</Text>
+          <Text style={isMine ? s.meta : s.metaTheirs}>
+            {item.from} · {new Date(item.ts).toLocaleTimeString()}
+          </Text>
         </View>
       );
     }
@@ -133,87 +150,166 @@ export function ChatScreen({ route, navigation }) {
         ? 'You just arrived at your meeting point! 🎯'
         : message;
       return (
-        <View style={[s.bubble, s.arrival]}>
+        <View style={s.arrivalBubble}>
           <Text style={s.arrivalText}>{displayText}</Text>
-          <Text style={s.meta}>{new Date(item.ts).toLocaleTimeString()}</Text>
+          <Text style={s.arrivalMeta}>{new Date(item.ts).toLocaleTimeString()}</Text>
         </View>
       );
     }
 
     return (
       <View style={[s.bubble, isMine ? s.mine : s.theirs]}>
-        <Text style={s.body}>{item.body}</Text>
-        <Text style={s.meta}>{item.from} · {new Date(item.ts).toLocaleTimeString()}</Text>
+        <Text style={isMine ? s.body : s.bodyTheirs}>{item.body}</Text>
+        <Text style={isMine ? s.meta : s.metaTheirs}>
+          {item.from} · {new Date(item.ts).toLocaleTimeString()}
+        </Text>
       </View>
     );
   };
 
   return (
-    <KeyboardAvoidingView
-      style={s.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+    <LinearGradient
+      colors={['#004E92', '#0077B6', '#00B4D8', '#48CAE4', '#ADE8F4', '#CAF0F8']}
+      locations={[0, 0.18, 0.42, 0.65, 0.85, 1.0]}
+      start={{ x: 0.5, y: 0 }}
+      end={{ x: 0.5, y: 1 }}
+      style={s.shell}
     >
-      <FlatList
-        ref={listRef}
-        data={thread}
-        keyExtractor={m => m.id}
-        onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: true })}
-        renderItem={renderBubble}
-        ListEmptyComponent={
-          <Text style={s.empty}>No messages yet.{'\n'}Say something!</Text>
-        }
-      />
-      <View style={s.composer}>
-        <TextInput
-          style={s.input}
-          value={input}
-          onChangeText={setInput}
-          placeholder="Message..."
-          placeholderTextColor="#555"
-          onSubmitEditing={send}
-          returnKeyType="send"
+      <KeyboardAvoidingView
+        style={s.kav}
+        behavior="padding"
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 88 : insets.bottom}
+      >
+        <FlatList
+          ref={listRef}
+          data={thread}
+          keyExtractor={m => m.id}
+          contentContainerStyle={s.listContent}
+          onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: true })}
+          renderItem={renderBubble}
+          ListEmptyComponent={
+            <View style={s.emptyBox}>
+              <Text style={s.empty}>No messages yet.{'\n'}Say something! 🦋</Text>
+            </View>
+          }
         />
-        <TouchableOpacity style={s.sendBtn} onPress={send}>
-          <Text style={s.sendBtnText}>Send</Text>
-        </TouchableOpacity>
-      </View>
-    </KeyboardAvoidingView>
+        <View style={[s.composer, { paddingBottom: Math.max(insets.bottom, 6) }]}>
+          <View style={s.composerGloss} />
+          <TextInput
+            style={s.input}
+            value={input}
+            onChangeText={setInput}
+            placeholder="Message..."
+            placeholderTextColor="#88BBCC"
+            onSubmitEditing={send}
+            returnKeyType="send"
+          />
+          <TouchableOpacity style={s.sendBtn} onPress={send} activeOpacity={0.75}>
+            <View style={s.sendBtnGloss} />
+            <Text style={s.sendBtnText}>›</Text>
+          </TouchableOpacity>
+        </View>
+      </KeyboardAvoidingView>
+    </LinearGradient>
   );
 }
 
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0a0a1a' },
-  empty: {
-    color: '#333', textAlign: 'center',
-    marginTop: 80, lineHeight: 24,
+  shell: { flex: 1 },
+  kav:   { flex: 1 },
+
+  listContent: {
+    flexGrow: 1, padding: 12, paddingBottom: 6, gap: 6,
+    justifyContent: 'flex-end',
   },
-  bubble: {
-    margin: 8, padding: 10, borderRadius: 12, maxWidth: '75%',
+  emptyBox: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingTop: 60 },
+  empty:    { color: 'rgba(255,255,255,0.50)', textAlign: 'center', fontSize: 14, lineHeight: 24 },
+
+  /* Standard bubble shell */
+  bubble: { maxWidth: '72%', paddingHorizontal: 11, paddingVertical: 7 },
+
+  /* Sent — right-aligned, blue, bottom-right corner sharp */
+  mine: {
+    alignSelf: 'flex-end',
+    backgroundColor: '#0077B6',
+    borderTopLeftRadius: 14, borderTopRightRadius: 14,
+    borderBottomLeftRadius: 14, borderBottomRightRadius: 4,
+    borderWidth: 1, borderColor: 'rgba(0,150,210,0.32)',
+    shadowColor: '#001840', shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.20, shadowRadius: 6, elevation: 3,
   },
-  mine:   { backgroundColor: '#1e3a5f', alignSelf: 'flex-end' },
-  theirs: { backgroundColor: '#1a1a1a', alignSelf: 'flex-start' },
-  body:   { color: '#fff', fontSize: 15 },
-  meta:   { color: '#555', fontSize: 11, marginTop: 4 },
+
+  /* Received — left-aligned, white glass, bottom-left corner sharp */
+  theirs: {
+    alignSelf: 'flex-start',
+    backgroundColor: 'rgba(255,255,255,0.92)',
+    borderTopLeftRadius: 14, borderTopRightRadius: 14,
+    borderBottomLeftRadius: 4, borderBottomRightRadius: 14,
+    borderWidth: 1.5, borderColor: 'rgba(120,190,230,0.38)',
+    shadowColor: '#0050A0', shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.09, shadowRadius: 5, elevation: 2,
+  },
+
+  body:       { color: '#fff',    fontSize: 13, lineHeight: 18 },
+  bodyTheirs: { color: '#003366', fontSize: 13, lineHeight: 18 },
+  meta:       { color: 'rgba(180,215,245,0.70)', fontSize: 10, marginTop: 3 },
+  metaTheirs: { color: '#88BBCC',                fontSize: 10, marginTop: 3 },
+
+  /* Location / meetingpoint tap card inside bubble */
+  specialCard:  { alignItems: 'center', gap: 4, paddingVertical: 4, minWidth: 130 },
+  specialIcon:  { fontSize: 26, textAlign: 'center' },
+  specialLabel: { color: '#fff',    fontWeight: '700', fontSize: 13, textAlign: 'center' },
+  specialLabelTheirs: { color: '#003366', fontWeight: '700', fontSize: 13, textAlign: 'center' },
+  specialHint:  { color: 'rgba(180,215,245,0.70)', fontSize: 11, textAlign: 'center' },
+  specialHintTheirs:  { color: '#88BBCC', fontSize: 11, textAlign: 'center' },
+
+  /* Arrival — centered green pill */
+  arrivalBubble: {
+    alignSelf: 'center', maxWidth: '86%',
+    backgroundColor: 'rgba(39,174,96,0.22)',
+    borderRadius: 14, borderWidth: 1, borderColor: 'rgba(104,211,145,0.38)',
+    paddingHorizontal: 16, paddingVertical: 9,
+    alignItems: 'center', gap: 3,
+  },
+  arrivalText: { color: '#68D391', fontSize: 13, fontWeight: '700', textAlign: 'center' },
+  arrivalMeta: { color: 'rgba(104,211,145,0.55)', fontSize: 10 },
+
+  /* Wii input bar — matches BroadcastTab */
   composer: {
-    flexDirection: 'row', padding: 10,
-    paddingBottom: Platform.OS === 'android' ? 64 : 10,
-    borderTopWidth: 1, borderColor: '#1a1a1a', gap: 8,
+    flexDirection: 'row', alignItems: 'center',
+    paddingHorizontal: 8, paddingTop: 6, paddingBottom: 6, gap: 6,
+    backgroundColor: 'rgba(210,235,255,0.94)',
+    borderTopWidth: 1, borderTopColor: 'rgba(100,170,220,0.35)',
+    overflow: 'hidden',
+  },
+  composerGloss: {
+    position: 'absolute', top: 0, left: 0, right: 0, height: '55%',
+    backgroundColor: 'rgba(255,255,255,0.46)',
   },
   input: {
-    flex: 1, backgroundColor: '#111', color: '#fff',
-    borderRadius: 8, padding: 10, fontSize: 15,
+    flex: 1,
+    minHeight: 38,
+    backgroundColor: 'rgba(255,255,255,0.88)',
+    borderRadius: 19, borderWidth: 1, borderColor: 'rgba(100,170,220,0.42)',
+    paddingHorizontal: 14, paddingVertical: 8,
+    fontSize: 13, color: '#003366', zIndex: 1,
   },
   sendBtn: {
-    backgroundColor: '#2563eb', borderRadius: 8,
-    paddingHorizontal: 16, justifyContent: 'center',
+    width: 38, height: 38, borderRadius: 19,
+    backgroundColor: 'rgba(255,255,255,0.25)',
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.58)',
+    alignItems: 'center', justifyContent: 'center',
+    overflow: 'hidden', zIndex: 1,
   },
-  sendBtnText:   { color: '#fff', fontWeight: 'bold' },
+  sendBtnGloss: {
+    position: 'absolute', top: 0, left: 0, right: 0, height: '44%',
+    backgroundColor: 'rgba(255,255,255,0.30)',
+    borderTopLeftRadius: 19, borderTopRightRadius: 19,
+  },
+  sendBtnText: { color: '#004E92', fontSize: 18, fontWeight: '800', zIndex: 1 },
+
+  /* Navigation header action buttons */
   headerBtns:    { flexDirection: 'row', marginRight: 8 },
   headerBtn:     { padding: 4, marginLeft: 4 },
   headerBtnText: { fontSize: 22 },
-  locationIcon:  { fontSize: 28, textAlign: 'center' },
-  locationLabel: { color: '#fff', fontWeight: '600', fontSize: 14, textAlign: 'center', marginTop: 4 },
-  locationHint:  { color: '#aaa', fontSize: 11, textAlign: 'center', marginTop: 2 },
-  arrival:       { backgroundColor: '#14532d', alignSelf: 'center', maxWidth: '90%' },
-  arrivalText:   { color: '#4ade80', fontWeight: '600', fontSize: 14, textAlign: 'center' },
 });
