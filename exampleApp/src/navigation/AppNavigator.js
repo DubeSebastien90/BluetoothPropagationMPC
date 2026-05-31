@@ -2,14 +2,14 @@ import React from 'react';
 import { TouchableOpacity, Text, StyleSheet } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { ContactsScreen }   from '../screens/ContactsScreen';
-import { ChatScreen }       from '../screens/ChatScreen';
-import { ProfileScreen }    from '../screens/ProfileScreen';
-import { ScanScreen }       from '../screens/ScanScreen';
-import { BroadcastScreen }  from '../screens/BroadcastScreen';
+import { ContactsScreen }        from '../screens/ContactsScreen';
+import { ChatScreen }            from '../screens/ChatScreen';
+import { ProfileScreen }         from '../screens/ProfileScreen';
+import { ScanScreen }            from '../screens/ScanScreen';
+import { BroadcastScreen }       from '../screens/BroadcastScreen';
 import { MapScreen }             from '../screens/MapScreen';
 import { PickMeetingPointScreen } from '../screens/PickMeetingPointScreen';
-import { useApp }           from '../state/AppContext';
+import { useApp }                from '../state/AppContext';
 
 const Stack = createNativeStackNavigator();
 
@@ -20,7 +20,7 @@ const screenOptions = {
   contentStyle:     { backgroundColor: '#0a0a1a' },
 };
 
-export function AppNavigator() {
+export function AppNavigator({ onDeleteAccount }) {
   const { state } = useApp();
 
   return (
@@ -61,9 +61,10 @@ export function AppNavigator() {
         />
         <Stack.Screen
           name="Profile"
-          component={ProfileScreen}
           options={{ title: 'My Profile' }}
-        />
+        >
+          {(props) => <ProfileScreen {...props} onDeleteAccount={onDeleteAccount} />}
+        </Stack.Screen>
         <Stack.Screen
           name="Scan"
           component={ScanScreen}

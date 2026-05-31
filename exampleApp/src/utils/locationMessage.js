@@ -1,6 +1,5 @@
 export function encodeLocation(lat, lng) {
   return JSON.stringify({
-    type: 'location',
     lat: Math.round(lat * 1e6),
     lng: Math.round(lng * 1e6),
   });
@@ -18,7 +17,6 @@ export function decodeLocation(body) {
 
 export function encodeMeetingPoint(meetLat, meetLng, fromLat, fromLng) {
   return JSON.stringify({
-    type:    'meetingpoint',
     meetLat: Math.round(meetLat * 1e6),
     meetLng: Math.round(meetLng * 1e6),
     fromLat: Math.round(fromLat * 1e6),

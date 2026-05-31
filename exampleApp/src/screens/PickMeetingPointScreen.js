@@ -30,7 +30,7 @@ export function PickMeetingPointScreen({ route, navigation }) {
   const confirm = () => {
     if (!meetPoint || !myLoc || !state.router) return;
     const body = encodeMeetingPoint(meetPoint.lat, meetPoint.lng, myLoc.lat, myLoc.lng);
-    state.router.send(contact.nickname, contact.pubkey, body);
+    state.router.send(contact.nickname, contact.pubkey, body, 'meetingpoint');
     dispatch({
       type: 'ADD_MESSAGE',
       payload: {
@@ -40,6 +40,7 @@ export function PickMeetingPointScreen({ route, navigation }) {
         to:     contact.nickname,
         toId:   contact.pubkey,
         body,
+        type:   'meetingpoint',
         ts:     Date.now(),
       },
     });

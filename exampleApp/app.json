@@ -1,9 +1,13 @@
 {
   "expo": {
     "plugins": [
+<<<<<<< HEAD
       "react-native-ble-plx",
       "expo-location",
       "@rnmapbox/maps"
+=======
+      "react-native-ble-plx"
+>>>>>>> newMaster
     ],
     "name": "exampleApp",
     "slug": "exampleApp",
@@ -15,8 +19,7 @@
       "supportsTablet": true,
       "infoPlist": {
         "NSBluetoothAlwaysUsageDescription": "This app uses Bluetooth to send and receive pings from nearby devices.",
-        "NSBluetoothPeripheralUsageDescription": "This app uses Bluetooth to send and receive pings from nearby devices.",
-        "NSLocationWhenInUseUsageDescription": "This app uses your location to share it with contacts in the mesh."
+        "NSBluetoothPeripheralUsageDescription": "This app uses Bluetooth to send and receive pings from nearby devices."
       },
       "bundleIdentifier": "com.anonymous.exampleApp"
     },
@@ -30,9 +33,7 @@
       "permissions": [
         "android.permission.BLUETOOTH",
         "android.permission.BLUETOOTH_ADMIN",
-        "android.permission.BLUETOOTH_CONNECT",
-        "android.permission.ACCESS_FINE_LOCATION",
-        "android.permission.ACCESS_COARSE_LOCATION"
+        "android.permission.BLUETOOTH_CONNECT"
       ],
       "package": "com.anonymous.exampleApp"
     },

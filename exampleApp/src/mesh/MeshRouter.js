@@ -3,13 +3,14 @@ import { createPacket } from '../contracts/Packet';
 const TAG = '[ROUTER]';
 
 export class MeshRouter {
-  constructor(identity, transport, crypto, onMessageForMe) {
-    this.identity       = identity;
-    this.transport      = transport;
-    this.crypto         = crypto;
-    this.onMessageForMe = onMessageForMe;
-    this.seen           = new Map();
-    this.SEEN_TTL_MS    = 60_000;
+  constructor(identity, transport, crypto, onMessageForMe, onContactRequest) {
+    this.identity          = identity;
+    this.transport         = transport;
+    this.crypto            = crypto;
+    this.onMessageForMe    = onMessageForMe;
+    this.onContactRequest  = onContactRequest ?? (() => {});
+    this.seen              = new Map();
+    this.SEEN_TTL_MS       = 60_000;
   }
 
   start() {
@@ -22,14 +23,29 @@ export class MeshRouter {
     this.transport.onPacketReceived = null;
   }
 
-  send(toNickname, toId, body) {
+  sendContactRequest(contact) {
+    const body = JSON.stringify({ nickname: this.identity.nickname, pubkey: this.identity.pubkey });
+    const packet = createPacket({
+      from:   this.identity.nickname,
+      fromId: this.identity.pubkey,
+      to:     contact.nickname,
+      toId:   contact.pubkey,
+      body,
+      type:   'contact_req',
+    });
+    console.log(TAG, 'sending contact_req to', contact.nickname, contact.pubkey.slice(0, 12) + '...');
+    this.seen.set(packet.id, Date.now());
+    this.transport.sendPacket(packet);
+  }
+
+  send(toNickname, toId, body, type = 'msg') {
     const isBroadcast = toId === 'all';
     let encryptedBody = body;
 
     if (!isBroadcast) {
       encryptedBody = this._tryEncrypt(body, toId);
       const encrypted = encryptedBody !== body;
-      console.log(TAG, `send → ${toNickname} (${toId.slice(0, 12)}...) encrypted:${encrypted}`);
+      console.log(TAG, `send → ${toNickname} (${toId.slice(0, 12)}...) type:${type} encrypted:${encrypted}`);
     } else {
       console.log(TAG, 'send broadcast → all');
     }
@@ -40,6 +56,7 @@ export class MeshRouter {
       to:     toNickname,
       toId,
       body:   encryptedBody,
+      type,
     });
 
     console.log(TAG, 'created packet id:', packet.id, 'ttl:', packet.ttl);
@@ -49,7 +66,7 @@ export class MeshRouter {
 
   _handleIncoming(packet, fromDeviceId) {
     console.log(TAG, 'incoming packet id:', packet.id,
-      'from:', packet.from, 'to:', packet.to, 'ttl:', packet.ttl);
+      'from:', packet.from, 'to:', packet.to, 'type:', packet.type ?? 'msg', 'ttl:', packet.ttl);
 
     // Register sender's identity on every packet
     if (packet.fromId && packet.from) {
@@ -64,7 +81,47 @@ export class MeshRouter {
     this.seen.set(packet.id, Date.now());
     this._pruneSeenCache();
 
-    const isForMe     = packet.toId === this.identity.pubkey;
+    const isForMe = packet.toId === this.identity.pubkey;
+
+    // Handle contact_req — consume, reply, do not relay
+    if (packet.type === 'contact_req' && isForMe) {
+      console.log(TAG, 'contact_req from', packet.from, '— auto-adding and sending ack');
+      try {
+        const contact = JSON.parse(packet.body);
+        if (contact.nickname && contact.pubkey) {
+          this.onContactRequest(contact, 'contact_req');
+          // Send ack back so the scanner knows it worked
+          const ack = createPacket({
+            from:   this.identity.nickname,
+            fromId: this.identity.pubkey,
+            to:     packet.from,
+            toId:   packet.fromId,
+            body:   JSON.stringify({ nickname: this.identity.nickname, pubkey: this.identity.pubkey }),
+            type:   'contact_ack',
+          });
+          this.seen.set(ack.id, Date.now());
+          this.transport.sendPacket(ack);
+        }
+      } catch (e) {
+        console.warn(TAG, 'contact_req parse failed:', e.message);
+      }
+      return;
+    }
+
+    // Handle contact_ack — consume, do not relay
+    if (packet.type === 'contact_ack' && isForMe) {
+      console.log(TAG, 'contact_ack from', packet.from, '— they added us back');
+      try {
+        const contact = JSON.parse(packet.body);
+        if (contact.nickname && contact.pubkey) {
+          this.onContactRequest(contact, 'contact_ack');
+        }
+      } catch (e) {
+        console.warn(TAG, 'contact_ack parse failed:', e.message);
+      }
+      return;
+    }
+
     const isBroadcast = packet.toId === 'all';
 
     if (isForMe || isBroadcast) {
@@ -82,6 +139,7 @@ export class MeshRouter {
         to:     packet.to,
         toId:   packet.toId,
         body:   decryptedBody,
+        type:   packet.type ?? 'msg',
         ts:     packet.ts,
       });
     } else {

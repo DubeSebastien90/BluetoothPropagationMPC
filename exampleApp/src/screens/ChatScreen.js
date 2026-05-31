@@ -5,15 +5,8 @@ import {
 } from 'react-native';
 import * as Location from 'expo-location';
 import { useApp } from '../state/AppContext';
-import { encodeLocation, decodeLocation, decodeMeetingPoint } from '../utils/locationMessage';
+import { encodeLocation } from '../utils/locationMessage';
 
-/**
- * Props:
- *   route.params.contact: { nickname, pubkey }
- *
- * Reads router from AppContext.
- * Routes by pubkey (toId) — two users named "Alex" are never confused.
- */
 export function ChatScreen({ route, navigation }) {
   const { contact } = route.params;
   const { state, dispatch } = useApp();
@@ -30,7 +23,7 @@ export function ChatScreen({ route, navigation }) {
     }
     const { coords } = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
     const body = encodeLocation(coords.latitude, coords.longitude);
-    state.router.send(contact.nickname, contact.pubkey, body);
+    state.router.send(contact.nickname, contact.pubkey, body, 'location');
     dispatch({
       type: 'ADD_MESSAGE',
       payload: {
@@ -40,6 +33,7 @@ export function ChatScreen({ route, navigation }) {
         to:     contact.nickname,
         toId:   contact.pubkey,
         body,
+        type:   'location',
         ts:     Date.now(),
       },
     });
@@ -81,10 +75,64 @@ export function ChatScreen({ route, navigation }) {
         to:     contact.nickname,
         toId:   contact.pubkey,
         body,
+        type:   'msg',
         ts:     Date.now(),
       },
     });
     setInput('');
+  };
+
+  const renderBubble = ({ item }) => {
+    const isMine = item.fromId === myPubkey;
+
+    if (item.type === 'location') {
+      const coords = JSON.parse(item.body);
+      return (
+        <View style={[s.bubble, isMine ? s.mine : s.theirs]}>
+          <TouchableOpacity
+            onPress={() => navigation.navigate('Map', {
+              type: 'location',
+              lat:  coords.lat / 1e6,
+              lng:  coords.lng / 1e6,
+            })}
+          >
+            <Text style={s.locationIcon}>📍</Text>
+            <Text style={s.locationLabel}>Shared a location</Text>
+            <Text style={s.locationHint}>Tap to open map</Text>
+          </TouchableOpacity>
+          <Text style={s.meta}>{item.from} · {new Date(item.ts).toLocaleTimeString()}</Text>
+        </View>
+      );
+    }
+
+    if (item.type === 'meetingpoint') {
+      const coords = JSON.parse(item.body);
+      return (
+        <View style={[s.bubble, isMine ? s.mine : s.theirs]}>
+          <TouchableOpacity
+            onPress={() => navigation.navigate('Map', {
+              type:    'meetingpoint',
+              meetLat: coords.meetLat / 1e6,
+              meetLng: coords.meetLng / 1e6,
+              fromLat: coords.fromLat / 1e6,
+              fromLng: coords.fromLng / 1e6,
+            })}
+          >
+            <Text style={s.locationIcon}>🏴</Text>
+            <Text style={s.locationLabel}>Proposed a meeting point</Text>
+            <Text style={s.locationHint}>Tap to open map</Text>
+          </TouchableOpacity>
+          <Text style={s.meta}>{item.from} · {new Date(item.ts).toLocaleTimeString()}</Text>
+        </View>
+      );
+    }
+
+    return (
+      <View style={[s.bubble, isMine ? s.mine : s.theirs]}>
+        <Text style={s.body}>{item.body}</Text>
+        <Text style={s.meta}>{item.from} · {new Date(item.ts).toLocaleTimeString()}</Text>
+      </View>
+    );
   };
 
   return (
@@ -97,48 +145,10 @@ export function ChatScreen({ route, navigation }) {
         data={thread}
         keyExtractor={m => m.id}
         onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: true })}
+        renderItem={renderBubble}
         ListEmptyComponent={
-          <Text style={s.empty}>
-            No messages yet.{'\n'}Say something!
-          </Text>
+          <Text style={s.empty}>No messages yet.{'\n'}Say something!</Text>
         }
-        renderItem={({ item }) => {
-          const loc  = decodeLocation(item.body);
-          const meet = decodeMeetingPoint(item.body);
-          const isMine = item.fromId === myPubkey;
-          return (
-            <View style={[s.bubble, isMine ? s.mine : s.theirs]}>
-              {loc ? (
-                <TouchableOpacity
-                  onPress={() => navigation.navigate('Map', { type: 'location', lat: loc.lat, lng: loc.lng })}
-                >
-                  <Text style={s.locationIcon}>📍</Text>
-                  <Text style={s.locationLabel}>Shared a location</Text>
-                  <Text style={s.locationHint}>Tap to open map</Text>
-                </TouchableOpacity>
-              ) : meet ? (
-                <TouchableOpacity
-                  onPress={() => navigation.navigate('Map', {
-                    type:    'meetingpoint',
-                    meetLat: meet.meetLat,
-                    meetLng: meet.meetLng,
-                    fromLat: meet.fromLat,
-                    fromLng: meet.fromLng,
-                  })}
-                >
-                  <Text style={s.locationIcon}>🏴</Text>
-                  <Text style={s.locationLabel}>Proposed a meeting point</Text>
-                  <Text style={s.locationHint}>Tap to open map</Text>
-                </TouchableOpacity>
-              ) : (
-                <Text style={s.body}>{item.body}</Text>
-              )}
-              <Text style={s.meta}>
-                {item.from} · {new Date(item.ts).toLocaleTimeString()}
-              </Text>
-            </View>
-          );
-        }}
       />
       <View style={s.composer}>
         <TextInput
@@ -184,11 +194,11 @@ const s = StyleSheet.create({
     backgroundColor: '#2563eb', borderRadius: 8,
     paddingHorizontal: 16, justifyContent: 'center',
   },
-  sendBtnText:    { color: '#fff', fontWeight: 'bold' },
-  headerBtns:     { flexDirection: 'row', marginRight: 8 },
-  headerBtn:      { padding: 4, marginLeft: 4 },
-  headerBtnText:  { fontSize: 22 },
-  locationIcon:   { fontSize: 28, textAlign: 'center' },
-  locationLabel:  { color: '#fff', fontWeight: '600', fontSize: 14, textAlign: 'center', marginTop: 4 },
-  locationHint:   { color: '#aaa', fontSize: 11, textAlign: 'center', marginTop: 2 },
+  sendBtnText:   { color: '#fff', fontWeight: 'bold' },
+  headerBtns:    { flexDirection: 'row', marginRight: 8 },
+  headerBtn:     { padding: 4, marginLeft: 4 },
+  headerBtnText: { fontSize: 22 },
+  locationIcon:  { fontSize: 28, textAlign: 'center' },
+  locationLabel: { color: '#fff', fontWeight: '600', fontSize: 14, textAlign: 'center', marginTop: 4 },
+  locationHint:  { color: '#aaa', fontSize: 11, textAlign: 'center', marginTop: 2 },
 });
