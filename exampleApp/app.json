@@ -1,7 +1,13 @@
 {
   "expo": {
     "plugins": [
-      "react-native-ble-plx"
+      "react-native-ble-plx",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow Mesh Chat to access your camera to scan contact QR codes."
+        }
+      ]
     ],
     "name": "exampleApp",
     "slug": "exampleApp",

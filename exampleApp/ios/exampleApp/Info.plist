@@ -48,6 +48,8 @@
 	<string>This app uses Bluetooth to send and receive pings from nearby devices.</string>
 	<key>NSBluetoothPeripheralUsageDescription</key>
 	<string>This app uses Bluetooth to send and receive pings from nearby devices.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Allow Mesh Chat to access your camera to scan contact QR codes.</string>
 	<key>RCTNewArchEnabled</key>
 	<true/>
 	<key>UILaunchStoryboardName</key>

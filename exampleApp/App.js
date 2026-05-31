@@ -6,53 +6,76 @@ import { SetupScreen }         from './src/screens/SetupScreen';
 import { BleManager }          from './src/ble/BleManager';
 import { MeshRouter }          from './src/mesh/MeshRouter';
 import { PeerManager }         from './src/mesh/peerManager';
-import { NullCrypto }          from './src/mocks/NullCrypto';
-// Swap the line above for this when adding encryption:
-// import { RealCrypto } from './src/crypto/RealCrypto';
+import { RealCrypto }          from './src/crypto/RealCrypto';
 
 function AppInner() {
   const { state, dispatch } = useApp();
 
-  // Restore persisted identity on launch
+  // Restore persisted identity on launch.
+  // Reconciles the stored pubkey with the real keypair — one-time fix for devices
+  // that were set up before RealCrypto (when NullCrypto wrote 'null-crypto-pubkey').
   useEffect(() => {
-    AsyncStorage.getItem('identity').then(stored => {
-      if (stored) dispatch({ type: 'SET_IDENTITY', payload: JSON.parse(stored) });
-    });
+    (async () => {
+      const stored = await AsyncStorage.getItem('identity');
+      if (!stored) return;
+
+      const savedIdentity = JSON.parse(stored);
+      const crypto = new RealCrypto();
+      const { pubkey } = await crypto.initialize();
+
+      if (savedIdentity.pubkey !== pubkey) {
+        const updated = { ...savedIdentity, pubkey };
+        await AsyncStorage.setItem('identity', JSON.stringify(updated));
+        dispatch({ type: 'SET_IDENTITY', payload: updated });
+      } else {
+        dispatch({ type: 'SET_IDENTITY', payload: savedIdentity });
+      }
+    })();
   }, []);
 
   // Start BLE once identity is set
   useEffect(() => {
     if (!state.identity) return;
 
-    const crypto = new NullCrypto();
+    let transport = null;
+    let mounted = true;
 
-    const peerManager = new PeerManager((peers) =>
-      dispatch({ type: 'SET_PEERS', payload: peers })
-    );
+    (async () => {
+      const crypto = new RealCrypto();
+      await crypto.initialize();  // loads keypair from AsyncStorage
+      if (!mounted) return;
 
-    const meshRouter = new MeshRouter(
-      state.identity,
-      null,
-      crypto,
-      (message) => dispatch({ type: 'ADD_MESSAGE', payload: message })
-    );
+      const peerManager = new PeerManager((peers) =>
+        dispatch({ type: 'SET_PEERS', payload: peers })
+      );
 
-    const transport = new BleManager({
-      onPacketReceived:   (packet, fromId) => meshRouter._handleIncoming(packet, fromId),
-      onPeerConnected:    (id, name) => peerManager.onPeerConnected(id, name),
-      onPeerDisconnected: (id) => peerManager.onPeerDisconnected(id),
-    });
+      const meshRouter = new MeshRouter(
+        state.identity,
+        null,
+        crypto,
+        (message) => dispatch({ type: 'ADD_MESSAGE', payload: message })
+      );
 
-    meshRouter.transport = transport;
-    meshRouter.start();
-    dispatch({ type: 'SET_ROUTER', payload: meshRouter });
+      transport = new BleManager({
+        onPacketReceived:   (packet, fromId) => meshRouter._handleIncoming(packet, fromId),
+        onPeerConnected:    (id, name) => peerManager.onPeerConnected(id, name),
+        onPeerDisconnected: (id) => peerManager.onPeerDisconnected(id),
+      });
 
-    transport.start().catch(e => console.error('[BLE] start failed:', e));
+      meshRouter.transport = transport;
+      meshRouter.start();
+      dispatch({ type: 'SET_ROUTER', payload: meshRouter });
 
-    return () => transport.stop();
+      transport.start().catch(e => console.error('[BLE] start failed:', e));
+    })();
+
+    return () => {
+      mounted = false;
+      transport?.stop();
+    };
   }, [state.identity]);
 
-  if (!state.identity) return <SetupScreen crypto={new NullCrypto()} />;
+  if (!state.identity) return <SetupScreen crypto={new RealCrypto()} />;
   return <AppNavigator />;
 }
 
