@@ -2,7 +2,7 @@ import * as Location from 'expo-location';
 
 const TAG        = '[TRACKER]';
 const INTERVAL   = 5000;   // ms
-const THRESHOLD  = 50;     // metres
+const THRESHOLD  = 15;     // metres
 
 function distanceMeters(lat1, lng1, lat2, lng2) {
   const R  = 6371000;
