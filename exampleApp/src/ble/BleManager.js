@@ -4,15 +4,23 @@ import { SERVICE_UUID, CHAR_UUID } from './constants';
 import { BleAdvertiser } from './BleAdvertiser';
 import { deserializePacket, serializePacket } from '../contracts/Packet';
 
-// btoa/atob are available globally in React Native (Hermes engine)
-// Handles JSON payloads with standard ASCII characters
-function toBase64(str)   { return btoa(unescape(encodeURIComponent(str))); }
-function fromBase64(b64) { return decodeURIComponent(escape(atob(b64))); }
+// Hermes has btoa/atob but not escape/unescape — use encodeURIComponent instead
+function toBase64(str) {
+  return btoa(encodeURIComponent(str).replace(/%([0-9A-F]{2})/gi, (_, p1) =>
+    String.fromCharCode(parseInt(p1, 16))
+  ));
+}
+function fromBase64(b64) {
+  return decodeURIComponent(
+    atob(b64).split('').map(c => '%' + c.charCodeAt(0).toString(16).padStart(2, '0')).join('')
+  );
+}
 
 export class BleManager {
   constructor({ onPacketReceived, onPeerConnected, onPeerDisconnected }) {
     this.plx              = new PlxManager();
     this.connectedDevices = new Map(); // deviceId → device
+    this._connecting      = new Set(); // deviceIds with in-flight connect
     this.onPacketReceived  = onPacketReceived;
     this.onPeerConnected   = onPeerConnected;
     this.onPeerDisconnected = onPeerDisconnected;
@@ -40,6 +48,11 @@ export class BleManager {
     const targets = [...this.connectedDevices.entries()]
       .filter(([id]) => id !== excludeDeviceId);
 
+    if (targets.length === 0) {
+      console.warn('[BLE] sendPacket: no connected peers, message dropped');
+      return;
+    }
+
     for (const [id, device] of targets) {
       try {
         await device.writeCharacteristicWithResponseForService(
@@ -60,16 +73,22 @@ export class BleManager {
   async _requestPermissions() {
     if (Platform.OS !== 'android') return;
     if (Platform.Version >= 31) {
-      await PermissionsAndroid.requestMultiple([
+      const results = await PermissionsAndroid.requestMultiple([
         PermissionsAndroid.PERMISSIONS.BLUETOOTH_SCAN,
         PermissionsAndroid.PERMISSIONS.BLUETOOTH_ADVERTISE,
         PermissionsAndroid.PERMISSIONS.BLUETOOTH_CONNECT,
         PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
       ]);
+      const denied = Object.values(results).some(
+        r => r !== PermissionsAndroid.RESULTS.GRANTED
+      );
+      if (denied) throw new Error('Bluetooth permissions denied');
     } else {
-      await PermissionsAndroid.request(
+      const result = await PermissionsAndroid.request(
         PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION
       );
+      if (result !== PermissionsAndroid.RESULTS.GRANTED)
+        throw new Error('Location permission denied');
     }
   }
 
@@ -89,7 +108,8 @@ export class BleManager {
         ...(Platform.OS === 'android' && { scanMode: 2 }), // LOW_LATENCY
       },
       async (error, device) => {
-        if (error || !device || this.connectedDevices.has(device.id)) return;
+        if (error || !device) return;
+        if (this.connectedDevices.has(device.id) || this._connecting.has(device.id)) return;
         try { await this._connect(device); }
         catch (e) { console.warn('[BLE] connect failed:', e.message); }
       }
@@ -97,20 +117,25 @@ export class BleManager {
   }
 
   async _connect(device) {
-    const connected = await device.connect({ timeout: 10000 });
+    this._connecting.add(device.id);
+    try {
+      const connected = await device.connect({ timeout: 10000 });
 
-    // Negotiate larger MTU on Android — default 20 bytes is too small for packets
-    if (Platform.OS === 'android') await connected.requestMTU(512);
+      // Negotiate larger MTU on Android — default 20 bytes is too small for packets
+      if (Platform.OS === 'android') await connected.requestMTU(512);
 
-    await connected.discoverAllServicesAndCharacteristics();
+      await connected.discoverAllServicesAndCharacteristics();
 
-    this.connectedDevices.set(device.id, connected);
-    this.onPeerConnected(device.id, device.name ?? 'Unknown');
+      this.connectedDevices.set(device.id, connected);
+      this.onPeerConnected(device.id, device.name ?? 'Unknown');
 
-    connected.onDisconnected(() => {
-      this.connectedDevices.delete(device.id);
-      this.onPeerDisconnected(device.id);
-      setTimeout(() => this._scan(), 2000); // re-scan after disconnect
-    });
+      connected.onDisconnected(() => {
+        this.connectedDevices.delete(device.id);
+        this.onPeerDisconnected(device.id);
+        setTimeout(() => this._scan(), 2000); // re-scan after disconnect
+      });
+    } finally {
+      this._connecting.delete(device.id);
+    }
   }
 }

@@ -2,8 +2,9 @@ import { useState, useEffect, useRef } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity,
   FlatList, StyleSheet, Alert, Platform,
-  KeyboardAvoidingView, SafeAreaView,
+  KeyboardAvoidingView,
 } from 'react-native';
+import { SafeAreaView, SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { BleManager }  from './src/ble/BleManager';
 import { MeshRouter }  from './src/mesh/MeshRouter';
@@ -51,6 +52,7 @@ function SetupScreen({ onConfirm }) {
 // ─── Main test screen ─────────────────────────────────────────────────────────
 
 function TestScreen({ identity }) {
+  const insets                  = useSafeAreaInsets();
   const [peers, setPeers]       = useState([]);
   const [messages, setMessages] = useState([]);
   const [input, setInput]       = useState('');
@@ -142,7 +144,7 @@ function TestScreen({ identity }) {
   };
 
   return (
-    <SafeAreaView style={s.container}>
+    <SafeAreaView style={s.container} edges={['top', 'left', 'right']}>
       <StatusBar style="light" />
 
       {/* Header */}
@@ -207,11 +209,16 @@ function TestScreen({ identity }) {
             placeholder="Message (optional)..."
             placeholderTextColor="#555"
           />
-          <TouchableOpacity style={s.broadcastBtn} onPress={sendBroadcast}>
+          <TouchableOpacity
+            style={[s.broadcastBtn, peers.length === 0 && s.btnDisabled]}
+            onPress={sendBroadcast}
+            disabled={peers.length === 0}
+          >
             <Text style={s.broadcastBtnText}>Broadcast</Text>
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
+      <View style={{ height: insets.bottom }} />
     </SafeAreaView>
   );
 }
@@ -223,15 +230,21 @@ export default function App() {
 
   if (!identity) {
     return (
-      <SetupScreen
-        onConfirm={(nickname) =>
-          setIdentity({ nickname, pubkey: testPubkey(nickname) })
-        }
-      />
+      <SafeAreaProvider>
+        <SetupScreen
+          onConfirm={(nickname) =>
+            setIdentity({ nickname, pubkey: testPubkey(nickname) })
+          }
+        />
+      </SafeAreaProvider>
     );
   }
 
-  return <TestScreen identity={identity} />;
+  return (
+    <SafeAreaProvider>
+      <TestScreen identity={identity} />
+    </SafeAreaProvider>
+  );
 }
 
 // ─── Styles ───────────────────────────────────────────────────────────────────

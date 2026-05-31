@@ -10,6 +10,7 @@
     "react-native": "0.85.3",
     "react-native-ble-plx": "^3.5.1",
     "react-native-qrcode-svg": "^6.3.21",
+    "react-native-safe-area-context": "~5.7.0",
     "react-native-svg": "15.15.4"
   },
   "scripts": {
@@ -21,7 +22,9 @@
   },
   "jest": {
     "preset": "jest-expo",
-    "testMatch": ["**/__tests__/**/*.test.js"]
+    "testMatch": [
+      "**/__tests__/**/*.test.js"
+    ]
   },
   "private": true,
   "packageManager": "yarn@1.22.22+sha512.a6b2f7906b721bba3d67d4aff083df04dad64c399707841b7acf00f6b133b7ac24255f2652fa22ae3534329dc6180534e98d17432037ff6fd140556e2bb3137e",
