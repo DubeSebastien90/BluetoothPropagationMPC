@@ -92,6 +92,7 @@ export function ChatScreen({ route, navigation }) {
       const coords = JSON.parse(item.body);
       return (
         <View style={[s.bubble, isMine ? s.mine : s.theirs]}>
+          {isMine ? <View style={s.bubbleGlossMine} /> : <><View style={s.bubbleGlossTheirs} /><View style={s.bubbleShadeTheirs} /></>}
           <TouchableOpacity
             onPress={() => navigation.navigate('Map', {
               type: 'location',
@@ -119,6 +120,7 @@ export function ChatScreen({ route, navigation }) {
       const coords = JSON.parse(item.body);
       return (
         <View style={[s.bubble, isMine ? s.mine : s.theirs]}>
+          {isMine ? <View style={s.bubbleGlossMine} /> : <><View style={s.bubbleGlossTheirs} /><View style={s.bubbleShadeTheirs} /></>}
           <TouchableOpacity
             onPress={() => navigation.navigate('Map', {
               type:    'meetingpoint',
@@ -159,6 +161,7 @@ export function ChatScreen({ route, navigation }) {
 
     return (
       <View style={[s.bubble, isMine ? s.mine : s.theirs]}>
+        <View style={s.bubbleGloss} />
         <Text style={isMine ? s.body : s.bodyTheirs}>{item.body}</Text>
         <Text style={isMine ? s.meta : s.metaTheirs}>
           {item.from} · {new Date(item.ts).toLocaleTimeString()}
@@ -228,15 +231,16 @@ const s = StyleSheet.create({
   /* Standard bubble shell */
   bubble: { maxWidth: '72%', paddingHorizontal: 11, paddingVertical: 7 },
 
-  /* Sent — right-aligned, blue, bottom-right corner sharp */
+  /* Sent — right-aligned, green glass, bottom-right corner sharp */
   mine: {
     alignSelf: 'flex-end',
-    backgroundColor: '#0077B6',
+    backgroundColor: 'rgba(34,170,78,0.82)',
     borderTopLeftRadius: 14, borderTopRightRadius: 14,
     borderBottomLeftRadius: 14, borderBottomRightRadius: 4,
-    borderWidth: 1, borderColor: 'rgba(0,150,210,0.32)',
-    shadowColor: '#001840', shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.20, shadowRadius: 6, elevation: 3,
+    borderWidth: 1, borderColor: 'rgba(60,210,100,0.38)',
+    overflow: 'hidden',
+    shadowColor: '#002810', shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.22, shadowRadius: 6, elevation: 3,
   },
 
   /* Received — left-aligned, white glass, bottom-left corner sharp */
@@ -246,13 +250,27 @@ const s = StyleSheet.create({
     borderTopLeftRadius: 14, borderTopRightRadius: 14,
     borderBottomLeftRadius: 4, borderBottomRightRadius: 14,
     borderWidth: 1.5, borderColor: 'rgba(120,190,230,0.38)',
+    overflow: 'hidden',
     shadowColor: '#0050A0', shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.09, shadowRadius: 5, elevation: 2,
   },
 
+  bubbleGlossMine: {
+    position: 'absolute', top: 0, left: 0, right: 0, height: '45%',
+    backgroundColor: 'rgba(255,255,255,0.22)',
+  },
+  bubbleGlossTheirs: {
+    position: 'absolute', top: 0, left: 0, right: 0, height: '52%',
+    backgroundColor: 'rgba(255,255,255,0.72)',
+  },
+  bubbleShadeTheirs: {
+    position: 'absolute', bottom: 0, left: 0, right: 0, height: '38%',
+    backgroundColor: 'rgba(160,210,255,0.14)',
+  },
+
   body:       { color: '#fff',    fontSize: 13, lineHeight: 18 },
   bodyTheirs: { color: '#003366', fontSize: 13, lineHeight: 18 },
-  meta:       { color: 'rgba(180,215,245,0.70)', fontSize: 10, marginTop: 3 },
+  meta:       { color: 'rgba(200,255,210,0.72)', fontSize: 10, marginTop: 3 },
   metaTheirs: { color: '#88BBCC',                fontSize: 10, marginTop: 3 },
 
   /* Location / meetingpoint tap card inside bubble */

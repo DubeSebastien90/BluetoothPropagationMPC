@@ -504,6 +504,7 @@ function BroadcastTab() {
           const mine = item.fromId === state.identity?.pubkey;
           return (
             <View style={[bc.bubble, mine ? bc.bubbleMine : bc.bubbleThem]}>
+              {mine ? <View style={bc.bubbleGlossMine} /> : <><View style={bc.bubbleGlossTheirs} /><View style={bc.bubbleShadeTheirs} /></>}
               {!mine && <Text style={bc.bubbleSender}>{item.from}</Text>}
               <Text style={mine ? bc.bodyMine : bc.bodyThem}>{item.body}</Text>
               <Text style={mine ? bc.metaMine : bc.metaThem}>
@@ -553,12 +554,13 @@ const bc = StyleSheet.create({
   bubble:     { maxWidth: '72%', paddingHorizontal: 11, paddingVertical: 7 },
   bubbleMine: {
     alignSelf: 'flex-end',
-    backgroundColor: '#0077B6',
+    backgroundColor: 'rgba(34,170,78,0.82)',
     borderTopLeftRadius: 14, borderTopRightRadius: 14,
     borderBottomLeftRadius: 14, borderBottomRightRadius: 4,
-    borderWidth: 1, borderColor: 'rgba(0,150,210,0.32)',
-    shadowColor: '#001840', shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.18, shadowRadius: 5, elevation: 3,
+    borderWidth: 1, borderColor: 'rgba(60,210,100,0.38)',
+    overflow: 'hidden',
+    shadowColor: '#002810', shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.22, shadowRadius: 5, elevation: 3,
   },
   bubbleThem: {
     alignSelf: 'flex-start',
@@ -566,13 +568,26 @@ const bc = StyleSheet.create({
     borderTopLeftRadius: 14, borderTopRightRadius: 14,
     borderBottomLeftRadius: 4, borderBottomRightRadius: 14,
     borderWidth: 1.5, borderColor: 'rgba(120,190,230,0.38)',
+    overflow: 'hidden',
     shadowColor: '#0050A0', shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.09, shadowRadius: 5, elevation: 2,
+  },
+  bubbleGlossMine: {
+    position: 'absolute', top: 0, left: 0, right: 0, height: '45%',
+    backgroundColor: 'rgba(255,255,255,0.22)',
+  },
+  bubbleGlossTheirs: {
+    position: 'absolute', top: 0, left: 0, right: 0, height: '52%',
+    backgroundColor: 'rgba(255,255,255,0.72)',
+  },
+  bubbleShadeTheirs: {
+    position: 'absolute', bottom: 0, left: 0, right: 0, height: '38%',
+    backgroundColor: 'rgba(160,210,255,0.14)',
   },
   bubbleSender: { color: '#4488AA', fontSize: 10, fontWeight: '700', marginBottom: 2 },
   bodyMine:  { color: '#fff',    fontSize: 13, lineHeight: 18 },
   bodyThem:  { color: '#003366', fontSize: 13, lineHeight: 18 },
-  metaMine:  { color: 'rgba(180,215,245,0.70)', fontSize: 10, marginTop: 3 },
+  metaMine:  { color: 'rgba(200,255,210,0.72)', fontSize: 10, marginTop: 3 },
   metaThem:  { color: '#88BBCC',                fontSize: 10, marginTop: 3 },
 
   /* Wii input bar */

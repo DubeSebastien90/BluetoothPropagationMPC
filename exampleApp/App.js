@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { View, ActivityIndicator, Text, StyleSheet, Image } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
+import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AppProvider, useApp }       from './src/state/AppContext';
 import { AppNavigator }              from './src/navigation/AppNavigator';
@@ -163,7 +164,7 @@ function AppInner() {
         <SafeAreaView style={s.center}>
           <View style={s.infoCard}>
             <View style={s.infoCardGloss} />
-            <Text style={s.infoIcon}>🗑</Text>
+            <Ionicons name="trash" size={40} color="rgba(255,255,255,0.90)" />
             <Text style={s.infoTitle}>Account deleted</Text>
             <Text style={s.infoBody}>
               Close and reopen the app to reconnect.
@@ -180,7 +181,7 @@ function AppInner() {
         <SafeAreaView style={s.center}>
           <View style={s.infoCard}>
             <View style={s.infoCardGloss} />
-            <Text style={s.infoIcon}>⚠️</Text>
+            <Ionicons name="warning" size={40} color="rgba(255,255,255,0.90)" />
             <Text style={s.infoTitle}>Startup error</Text>
             <Text style={s.infoBody}>{initError}</Text>
           </View>
@@ -252,7 +253,6 @@ const s = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.14)',
     borderTopLeftRadius: 20, borderTopRightRadius: 20,
   },
-  infoIcon:  { fontSize: 36 },
   infoTitle: { color: '#fff', fontSize: 20, fontWeight: '900', textAlign: 'center' },
   infoBody:  {
     color: 'rgba(255,255,255,0.65)', fontSize: 14, lineHeight: 22,
