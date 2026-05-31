@@ -7,7 +7,7 @@
  * @property {string} toId      - Recipient public key or "all" (actual routing target)
  * @property {number} ttl       - Hops remaining. Start at 5. Drop at 0.
  * @property {string} body      - Message text (plaintext now, ciphertext later)
- * @property {'msg'|'contact_req'|'contact_ack'} type - Packet purpose. Defaults to 'msg'.
+ * @property {'msg'|'contact_req'|'contact_ack'|'group_invite'} type - Packet purpose. Defaults to 'msg'.
  * @property {number} ts        - Unix timestamp ms
  *
  * Identity design:

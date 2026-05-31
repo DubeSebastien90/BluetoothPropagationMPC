@@ -5,6 +5,7 @@ const initialState = {
   messages:  [],     // { id, from, fromId, to, toId, body, ts }[]
   peers:     [],     // { deviceId, name, connectedAt }[]
   contacts:  [],     // { nickname, pubkey }[]
+  groups:    [],     // { groupId, name, members[{ nickname, pubkey }], createdAt }[]
   router:    null,   // MeshRouter instance
   crypto:    null,   // RealCrypto (or NullCrypto) instance
 };
@@ -26,6 +27,15 @@ function reducer(state, action) {
       return { ...state, contacts: action.payload };
     case 'REMOVE_CONTACT':
       return { ...state, contacts: state.contacts.filter(c => c.pubkey !== action.payload) };
+    case 'ADD_GROUP': {
+      const exists = state.groups.some(g => g.groupId === action.payload.groupId);
+      if (exists) return state;
+      return { ...state, groups: [...state.groups, action.payload] };
+    }
+    case 'SET_GROUPS':
+      return { ...state, groups: action.payload };
+    case 'REMOVE_GROUP':
+      return { ...state, groups: state.groups.filter(g => g.groupId !== action.payload) };
     case 'SET_ROUTER':
       return { ...state, router: action.payload };
     case 'SET_CRYPTO':

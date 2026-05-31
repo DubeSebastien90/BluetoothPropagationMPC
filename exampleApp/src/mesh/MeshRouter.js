@@ -3,14 +3,16 @@ import { createPacket } from '../contracts/Packet';
 const TAG = '[ROUTER]';
 
 export class MeshRouter {
-  constructor(identity, transport, crypto, onMessageForMe, onContactRequest) {
-    this.identity          = identity;
-    this.transport         = transport;
-    this.crypto            = crypto;
-    this.onMessageForMe    = onMessageForMe;
-    this.onContactRequest  = onContactRequest ?? (() => {});
-    this.seen              = new Map();
-    this.SEEN_TTL_MS       = 60_000;
+  constructor(identity, transport, crypto, onMessageForMe, onContactRequest, onGroupInvite) {
+    this.identity         = identity;
+    this.transport        = transport;
+    this.crypto           = crypto;
+    this.onMessageForMe   = onMessageForMe;
+    this.onContactRequest = onContactRequest ?? (() => {});
+    this.onGroupInvite    = onGroupInvite    ?? (() => {});
+    this.getMyGroups      = () => [];         // overridden by App.js after construction
+    this.seen             = new Map();
+    this.SEEN_TTL_MS      = 60_000;
   }
 
   start() {
@@ -21,6 +23,35 @@ export class MeshRouter {
   stop() {
     console.log(TAG, 'stopped');
     this.transport.onPacketReceived = null;
+  }
+
+  sendGroupInvite(group, contact) {
+    const body = JSON.stringify(group);
+    const packet = createPacket({
+      from:   this.identity.nickname,
+      fromId: this.identity.pubkey,
+      to:     contact.nickname,
+      toId:   contact.pubkey,
+      body,
+      type:   'group_invite',
+    });
+    console.log(TAG, 'sending group_invite to', contact.nickname, 'for group', group.name);
+    this.seen.set(packet.id, Date.now());
+    this.transport.sendPacket(packet);
+  }
+
+  sendGroupMessage(group, body) {
+    const packet = createPacket({
+      from:   this.identity.nickname,
+      fromId: this.identity.pubkey,
+      to:     group.name,
+      toId:   group.groupId,
+      body,
+      type:   'msg',
+    });
+    console.log(TAG, 'sending group message to', group.name, '(', group.groupId, ')');
+    this.seen.set(packet.id, Date.now());
+    this.transport.sendPacket(packet);
   }
 
   sendContactRequest(contact) {
@@ -82,6 +113,21 @@ export class MeshRouter {
 
     const isForMe = packet.toId === this.identity.pubkey;
 
+    // Handle group_invite — consume, do not relay
+    if (packet.type === 'group_invite' && isForMe) {
+      console.log(TAG, 'group_invite from', packet.from);
+      try {
+        const decryptedBody = this._tryDecrypt(packet.body, packet.fromId);
+        const group = JSON.parse(decryptedBody);
+        if (group.groupId && group.name && group.members) {
+          this.onGroupInvite(group);
+        }
+      } catch (e) {
+        console.warn(TAG, 'group_invite parse failed:', e.message);
+      }
+      return;
+    }
+
     // Handle contact_req — consume, reply, do not relay
     if (packet.type === 'contact_req' && isForMe) {
       console.log(TAG, 'contact_req from', packet.from, '— auto-adding and sending ack');
@@ -119,6 +165,21 @@ export class MeshRouter {
         console.warn(TAG, 'contact_ack parse failed:', e.message);
       }
       return;
+    }
+
+    // Deliver group messages
+    const myGroupIds = this.getMyGroups();
+    if (myGroupIds.includes(packet.toId)) {
+      console.log(TAG, 'group message for', packet.toId, '— from:', packet.from);
+      this.onMessageForMe({
+        id:     packet.id,
+        from:   packet.from,
+        fromId: packet.fromId,
+        to:     packet.to,
+        toId:   packet.toId,
+        body:   packet.body,
+        ts:     packet.ts,
+      });
     }
 
     const isBroadcast = packet.toId === 'all';

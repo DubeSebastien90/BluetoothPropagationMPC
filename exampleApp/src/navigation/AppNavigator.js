@@ -2,12 +2,14 @@ import React from 'react';
 import { TouchableOpacity, Text, StyleSheet } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { ContactsScreen }   from '../screens/ContactsScreen';
-import { ChatScreen }       from '../screens/ChatScreen';
-import { ProfileScreen }    from '../screens/ProfileScreen';
-import { ScanScreen }       from '../screens/ScanScreen';
-import { BroadcastScreen }  from '../screens/BroadcastScreen';
-import { useApp }           from '../state/AppContext';
+import { ContactsScreen }     from '../screens/ContactsScreen';
+import { ChatScreen }         from '../screens/ChatScreen';
+import { GroupChatScreen }    from '../screens/GroupChatScreen';
+import { CreateGroupScreen }  from '../screens/CreateGroupScreen';
+import { ProfileScreen }      from '../screens/ProfileScreen';
+import { ScanScreen }         from '../screens/ScanScreen';
+import { BroadcastScreen }    from '../screens/BroadcastScreen';
+import { useApp }             from '../state/AppContext';
 
 const Stack = createNativeStackNavigator();
 
@@ -67,6 +69,19 @@ export function AppNavigator({ onDeleteAccount }) {
           name="Scan"
           component={ScanScreen}
           options={{ title: 'Scan QR Code' }}
+        />
+        <Stack.Screen
+          name="CreateGroup"
+          component={CreateGroupScreen}
+          options={{ title: 'New Group' }}
+        />
+        <Stack.Screen
+          name="GroupChat"
+          component={GroupChatScreen}
+          options={({ route }) => ({
+            title: route.params.group.name,
+            headerSubtitle: `${route.params.group.members.length} members`,
+          })}
         />
       </Stack.Navigator>
     </NavigationContainer>

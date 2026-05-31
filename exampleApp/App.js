@@ -12,11 +12,13 @@ import { RealCrypto }                from './src/crypto/RealCrypto';
 import { ContactNotifModal }         from './src/components/ContactNotifModal';
 
 const CONTACTS_KEY = 'contacts_v1';
+const GROUPS_KEY   = 'groups_v1';
 
 function AppInner() {
   const { state, dispatch } = useApp();
   const [initError, setInitError]       = useState(null);
   const [contactNotif, setContactNotif] = useState(null);
+  const [groupNotif, setGroupNotif]     = useState(null);
   const transportRef                    = useRef(null);
 
   // ── Step 1: Initialise crypto on launch ─────────────────────────────────────
@@ -45,6 +47,11 @@ function AppInner() {
           contacts.forEach(c => crypto.registerPeerKey(c.pubkey, c.nickname));
           dispatch({ type: 'SET_CONTACTS', payload: contacts });
         }
+
+        const storedGroups = await AsyncStorage.getItem(GROUPS_KEY);
+        if (storedGroups) {
+          dispatch({ type: 'SET_GROUPS', payload: JSON.parse(storedGroups) });
+        }
       }
     };
 
@@ -54,12 +61,18 @@ function AppInner() {
     });
   }, []);
 
-  // ── Step 2: Persist contacts whenever they change ────────────────────────────
+  // ── Step 2: Persist contacts + groups whenever they change ──────────────────
   useEffect(() => {
-    if (!state.identity) return; // don't overwrite before initial load completes
+    if (!state.identity) return;
     AsyncStorage.setItem(CONTACTS_KEY, JSON.stringify(state.contacts))
       .catch(e => console.warn('[APP] contacts save failed:', e));
   }, [state.contacts]);
+
+  useEffect(() => {
+    if (!state.identity) return;
+    AsyncStorage.setItem(GROUPS_KEY, JSON.stringify(state.groups))
+      .catch(e => console.warn('[APP] groups save failed:', e));
+  }, [state.groups]);
 
   // ── Step 3: Start BLE once identity + crypto are both ready ─────────────────
   useEffect(() => {
@@ -79,8 +92,15 @@ function AppInner() {
         state.crypto.registerPeerKey(contact.pubkey, contact.nickname);
         dispatch({ type: 'ADD_CONTACT', payload: contact });
         setContactNotif({ ...contact, type });
+      },
+      (group) => {
+        console.log('[APP] group_invite received:', group.name, group.groupId);
+        dispatch({ type: 'ADD_GROUP', payload: group });
+        setGroupNotif(group);
       }
     );
+
+    meshRouter.getMyGroups = () => state.groups.map(g => g.groupId);
 
     const transport = new BleManager({
       onPacketReceived:   (packet, fromId) => meshRouter._handleIncoming(packet, fromId),
@@ -121,7 +141,7 @@ function AppInner() {
   const deleteAccount = async () => {
     console.log('[APP] deleting account...');
     transportRef.current?.stop();
-    await AsyncStorage.multiRemove([IDENTITY_KEY, CONTACTS_KEY, 'keypair_v1']);
+    await AsyncStorage.multiRemove([IDENTITY_KEY, CONTACTS_KEY, GROUPS_KEY, 'keypair_v1']);
     dispatch({ type: 'RESET' });
   };
 
@@ -133,6 +153,10 @@ function AppInner() {
       <ContactNotifModal
         notif={contactNotif}
         onDismiss={() => setContactNotif(null)}
+      />
+      <ContactNotifModal
+        notif={groupNotif ? { ...groupNotif, type: 'group_invite' } : null}
+        onDismiss={() => setGroupNotif(null)}
       />
     </>
   );

@@ -39,26 +39,33 @@ export function ContactNotifModal({ notif, onDismiss }) {
 
   if (!notif) return null;
 
-  const isReq = notif.type === 'contact_req';
+  const isGroupInvite = notif.type === 'group_invite';
+  const isReq         = notif.type === 'contact_req';
+
+  const icon    = isGroupInvite ? '🫂' : isReq ? '👋' : '✅';
+  const title   = isGroupInvite ? 'Added to group' : isReq ? 'New contact' : 'Contact confirmed';
+  const name    = isGroupInvite ? notif.name : notif.nickname;
+  const sub     = isGroupInvite
+    ? `You were added to this group (${notif.members?.length ?? '?'} members).`
+    : isReq
+      ? 'added you as a contact via QR scan.'
+      : 'confirmed your contact request.';
+  const detail  = isGroupInvite
+    ? notif.members?.map(m => m.nickname).join(', ')
+    : notif.pubkey;
 
   return (
     <Modal transparent animationType="none" visible={!!notif} onRequestClose={dismiss}>
       <View style={s.backdrop}>
         <Animated.View style={[s.card, { opacity }]}>
           <View style={s.iconRow}>
-            <Text style={s.icon}>{isReq ? '👋' : '✅'}</Text>
+            <Text style={s.icon}>{icon}</Text>
           </View>
-          <Text style={s.title}>
-            {isReq ? 'New contact' : 'Contact confirmed'}
-          </Text>
-          <Text style={s.name}>{notif.nickname}</Text>
-          <Text style={s.sub}>
-            {isReq
-              ? 'added you as a contact via QR scan.'
-              : 'confirmed your contact request.'}
-          </Text>
-          <Text style={s.id} numberOfLines={1} ellipsizeMode="middle">
-            {notif.pubkey}
+          <Text style={s.title}>{title}</Text>
+          <Text style={s.name}>{name}</Text>
+          <Text style={s.sub}>{sub}</Text>
+          <Text style={s.id} numberOfLines={2} ellipsizeMode="tail">
+            {detail}
           </Text>
           <TouchableOpacity style={s.btn} onPress={dismiss}>
             <Text style={s.btnText}>Dismiss</Text>
