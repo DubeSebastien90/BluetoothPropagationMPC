@@ -1,20 +1,27 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
+import {
+  View, Text, TextInput, TouchableOpacity,
+  StyleSheet, ActivityIndicator,
+} from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useApp } from '../state/AppContext';
 
-export function SetupScreen({ crypto }) {
-  const { dispatch } = useApp();
+// Versioned key — must stay in sync with App.js identity restore logic
+export const IDENTITY_KEY = 'identity_v1';
+
+export function SetupScreen() {
+  const { state, dispatch } = useApp();
   const [nickname, setNickname] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading]   = useState(false);
 
   const confirm = async () => {
-    if (!nickname.trim()) return;
+    if (!nickname.trim() || !state.crypto) return;
     setLoading(true);
     try {
-      const { pubkey } = await crypto.initialize();
+      // Crypto is already initialised in App.js — just get the pubkey
+      const pubkey   = state.crypto.getPublicKey();
       const identity = { nickname: nickname.trim(), pubkey };
-      await AsyncStorage.setItem('identity', JSON.stringify(identity));
+      await AsyncStorage.setItem(IDENTITY_KEY, JSON.stringify(identity));
       dispatch({ type: 'SET_IDENTITY', payload: identity });
     } finally {
       setLoading(false);
@@ -39,7 +46,7 @@ export function SetupScreen({ crypto }) {
       <TouchableOpacity
         style={[s.btn, (!nickname.trim() || loading) && s.btnDisabled]}
         onPress={confirm}
-        disabled={!nickname.trim() || loading}
+        disabled={!nickname.trim() || loading || !state.crypto}
       >
         {loading
           ? <ActivityIndicator color="#fff" />

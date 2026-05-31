@@ -6,8 +6,8 @@ import { useApp } from '../state/AppContext';
 
 export function ScanScreen({ navigation }) {
   const { state, dispatch } = useApp();
-  const [scanned, setScanned] = useState(false);
-  const [permission, requestPermission] = useCameraPermissions();
+  const [scanned, setScanned]               = useState(false);
+  const [permission, requestPermission]     = useCameraPermissions();
 
   if (!permission) return null;
 
@@ -26,13 +26,12 @@ export function ScanScreen({ navigation }) {
 
     const contact = decodeIdentityFromQR(data);
     if (!contact) {
-      Alert.alert('Invalid QR', 'This QR code is not a valid contact.', [
+      Alert.alert('Invalid QR', 'This is not a valid Mesh Chat contact.', [
         { text: 'Try again', onPress: () => setScanned(false) },
       ]);
       return;
     }
 
-    // Don't add yourself
     if (contact.pubkey === state.identity?.pubkey) {
       Alert.alert('That\'s you!', 'You scanned your own QR code.', [
         { text: 'OK', onPress: () => setScanned(false) },
@@ -40,8 +39,8 @@ export function ScanScreen({ navigation }) {
       return;
     }
 
-    // Register their key in crypto layer if available
-    state.router?.crypto?.registerPeerKey(contact.pubkey, contact.nickname);
+    // Register their public key in the crypto layer
+    state.crypto?.registerPeerKey(contact.pubkey, contact.nickname);
 
     dispatch({ type: 'ADD_CONTACT', payload: contact });
 
@@ -85,7 +84,6 @@ const s = StyleSheet.create({
   },
   hint: {
     color: '#fff', textAlign: 'center',
-    padding: 16, backgroundColor: '#0a0a1a',
-    fontSize: 14,
+    padding: 16, backgroundColor: '#0a0a1a', fontSize: 14,
   },
 });

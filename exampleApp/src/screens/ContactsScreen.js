@@ -14,13 +14,19 @@ export function ContactsScreen({ navigation }) {
 
   return (
     <View style={s.container}>
-      {/* Status bar */}
+      {/* Status + broadcast button */}
       <View style={s.statusBar}>
         <Text style={s.statusText}>
           {peerCount === 0
             ? '📡 scanning for peers...'
             : `🔗 ${peerCount} peer${peerCount > 1 ? 's' : ''} in range`}
         </Text>
+        <TouchableOpacity
+          style={s.broadcastBtn}
+          onPress={() => navigation.navigate('Broadcast')}
+        >
+          <Text style={s.broadcastBtnText}>📡 Broadcast</Text>
+        </TouchableOpacity>
       </View>
 
       <FlatList
@@ -66,10 +72,13 @@ export function ContactsScreen({ navigation }) {
 const s = StyleSheet.create({
   container:  { flex: 1, backgroundColor: '#0a0a1a' },
   statusBar: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 16, paddingVertical: 10,
     borderBottomWidth: 1, borderColor: '#1a1a1a',
   },
-  statusText: { color: '#555', fontSize: 13 },
+  statusText:       { color: '#555', fontSize: 13 },
+  broadcastBtn:     { backgroundColor: '#1e3a5f', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 6 },
+  broadcastBtnText: { color: '#2563eb', fontSize: 13, fontWeight: '600' },
   emptyBox: {
     alignItems: 'center', paddingTop: 80, paddingHorizontal: 40, gap: 12,
   },

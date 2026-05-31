@@ -1,11 +1,12 @@
 import React, { createContext, useContext, useReducer } from 'react';
 
 const initialState = {
-  identity:  null,   // { nickname, pubkey } — set on SetupScreen, persisted
+  identity:  null,   // { nickname, pubkey }
   messages:  [],     // { id, from, fromId, to, toId, body, ts }[]
   peers:     [],     // { deviceId, name, connectedAt }[]
-  contacts:  [],     // { nickname, pubkey }[] — added via QR scan
-  router:    null,   // MeshRouter instance — set after BLE starts
+  contacts:  [],     // { nickname, pubkey }[]
+  router:    null,   // MeshRouter instance
+  crypto:    null,   // RealCrypto (or NullCrypto) instance
 };
 
 function reducer(state, action) {
@@ -21,8 +22,12 @@ function reducer(state, action) {
       if (exists) return state;
       return { ...state, contacts: [...state.contacts, action.payload] };
     }
+    case 'SET_CONTACTS':
+      return { ...state, contacts: action.payload };
     case 'SET_ROUTER':
       return { ...state, router: action.payload };
+    case 'SET_CRYPTO':
+      return { ...state, crypto: action.payload };
     default:
       return state;
   }
