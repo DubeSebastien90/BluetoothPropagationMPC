@@ -24,6 +24,8 @@ function reducer(state, action) {
     }
     case 'SET_CONTACTS':
       return { ...state, contacts: action.payload };
+    case 'REMOVE_CONTACT':
+      return { ...state, contacts: state.contacts.filter(c => c.pubkey !== action.payload) };
     case 'SET_ROUTER':
       return { ...state, router: action.payload };
     case 'SET_CRYPTO':

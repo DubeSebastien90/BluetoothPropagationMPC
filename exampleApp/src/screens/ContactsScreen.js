@@ -1,6 +1,6 @@
 import React from 'react';
 import {
-  View, Text, FlatList, TouchableOpacity, StyleSheet,
+  View, Text, FlatList, TouchableOpacity, StyleSheet, Alert,
 } from 'react-native';
 import { useApp } from '../state/AppContext';
 
@@ -9,8 +9,23 @@ import { useApp } from '../state/AppContext';
  * Header buttons navigate to Profile and Scan screens.
  */
 export function ContactsScreen({ navigation }) {
-  const { state } = useApp();
+  const { state, dispatch } = useApp();
   const peerCount = state.peers.length;
+
+  const confirmDelete = (contact) => {
+    Alert.alert(
+      'Remove contact',
+      `Remove ${contact.nickname} from your contacts?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Remove',
+          style: 'destructive',
+          onPress: () => dispatch({ type: 'REMOVE_CONTACT', payload: contact.pubkey }),
+        },
+      ]
+    );
+  };
 
   return (
     <View style={s.container}>
@@ -50,6 +65,7 @@ export function ContactsScreen({ navigation }) {
           <TouchableOpacity
             style={s.row}
             onPress={() => navigation.navigate('Chat', { contact: item })}
+            onLongPress={() => confirmDelete(item)}
           >
             <View style={s.avatar}>
               <Text style={s.avatarText}>
