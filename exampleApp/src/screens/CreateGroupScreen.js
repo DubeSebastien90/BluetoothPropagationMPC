@@ -43,8 +43,8 @@ export function CreateGroupScreen({ navigation }) {
     dispatch({ type: 'ADD_GROUP', payload: group });
 
     const peersConnected = state.peers.length > 0;
-    selectedContacts.forEach(contact => {
-      state.router.sendGroupInvite(group, contact);
+    selectedContacts.forEach((contact, i) => {
+      setTimeout(() => state.router.sendGroupInvite(group, contact), i * 300);
     });
 
     if (!peersConnected) {
