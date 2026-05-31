@@ -30,6 +30,8 @@ function reducer(state, action) {
       return { ...state, router: action.payload };
     case 'SET_CRYPTO':
       return { ...state, crypto: action.payload };
+    case 'RESET':
+      return { ...initialState };
     default:
       return state;
   }

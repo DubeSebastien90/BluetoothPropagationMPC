@@ -18,7 +18,7 @@ const screenOptions = {
   contentStyle:     { backgroundColor: '#0a0a1a' },
 };
 
-export function AppNavigator() {
+export function AppNavigator({ onDeleteAccount }) {
   const { state } = useApp();
 
   return (
@@ -59,9 +59,10 @@ export function AppNavigator() {
         />
         <Stack.Screen
           name="Profile"
-          component={ProfileScreen}
           options={{ title: 'My Profile' }}
-        />
+        >
+          {(props) => <ProfileScreen {...props} onDeleteAccount={onDeleteAccount} />}
+        </Stack.Screen>
         <Stack.Screen
           name="Scan"
           component={ScanScreen}

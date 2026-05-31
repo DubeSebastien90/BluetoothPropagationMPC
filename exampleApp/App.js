@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { View, ActivityIndicator, Text, StyleSheet } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -15,8 +15,9 @@ const CONTACTS_KEY = 'contacts_v1';
 
 function AppInner() {
   const { state, dispatch } = useApp();
-  const [initError, setInitError]     = useState(null);
+  const [initError, setInitError]       = useState(null);
   const [contactNotif, setContactNotif] = useState(null);
+  const transportRef                    = useRef(null);
 
   // ── Step 1: Initialise crypto on launch ─────────────────────────────────────
   useEffect(() => {
@@ -91,9 +92,10 @@ function AppInner() {
     meshRouter.start();
     dispatch({ type: 'SET_ROUTER', payload: meshRouter });
 
+    transportRef.current = transport;
     transport.start().catch(e => console.error('[BLE] start failed:', e));
 
-    return () => transport.stop();
+    return () => { transport.stop(); transportRef.current = null; };
   }, [state.identity, state.crypto]);
 
   // ── Render ───────────────────────────────────────────────────────────────────
@@ -116,11 +118,18 @@ function AppInner() {
     );
   }
 
+  const deleteAccount = async () => {
+    console.log('[APP] deleting account...');
+    transportRef.current?.stop();
+    await AsyncStorage.multiRemove([IDENTITY_KEY, CONTACTS_KEY, 'keypair_v1']);
+    dispatch({ type: 'RESET' });
+  };
+
   if (!state.identity) return <SetupScreen />;
 
   return (
     <>
-      <AppNavigator />
+      <AppNavigator onDeleteAccount={deleteAccount} />
       <ContactNotifModal
         notif={contactNotif}
         onDismiss={() => setContactNotif(null)}
