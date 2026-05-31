@@ -129,9 +129,12 @@ export function ChatScreen({ route, navigation }) {
 
     if (item.type === 'arrival') {
       const { message } = JSON.parse(item.body);
+      const displayText = isMine
+        ? 'You just arrived at your meeting point! 🎯'
+        : message;
       return (
         <View style={[s.bubble, s.arrival]}>
-          <Text style={s.arrivalText}>{message}</Text>
+          <Text style={s.arrivalText}>{displayText}</Text>
           <Text style={s.meta}>{new Date(item.ts).toLocaleTimeString()}</Text>
         </View>
       );
