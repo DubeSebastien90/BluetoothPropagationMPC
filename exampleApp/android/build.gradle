@@ -1,5 +1,20 @@
 // Top-level build file where you can add configuration options common to all sub-projects/modules.
 
+def loadEnv() {
+  def env = [:]
+  def envFile = rootProject.file('../.env')
+  if (envFile.exists()) {
+    envFile.eachLine { line ->
+      if (line && !line.startsWith('#') && line.contains('=')) {
+        def parts = line.split('=', 2)
+        env[parts[0].trim()] = parts[1].trim()
+      }
+    }
+  }
+  return env
+}
+def env = loadEnv()
+
 buildscript {
   repositories {
     google()
@@ -17,6 +32,14 @@ allprojects {
     google()
     mavenCentral()
     maven { url 'https://www.jitpack.io' }
+    maven {
+      url 'https://api.mapbox.com/downloads/v2/releases/maven'
+      authentication { basic(BasicAuthentication) }
+      credentials {
+        username = "mapbox"
+        password = env['MAPBOX_DOWNLOADS_TOKEN'] ?: project.properties['MAPBOX_DOWNLOADS_TOKEN'] ?: ""
+      }
+    }
   }
 }
 

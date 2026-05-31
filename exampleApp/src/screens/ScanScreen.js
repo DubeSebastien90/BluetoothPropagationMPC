@@ -44,9 +44,14 @@ export function ScanScreen({ navigation }) {
 
     dispatch({ type: 'ADD_CONTACT', payload: contact });
 
+    // Send contact request over BLE so they auto-add us back
+    if (state.router) {
+      state.router.sendContactRequest(contact);
+    }
+
     Alert.alert(
       'Contact added',
-      `${contact.nickname} has been added to your contacts.`,
+      `${contact.nickname} added. They'll be notified automatically if in range.`,
       [{ text: 'OK', onPress: () => navigation.goBack() }]
     );
   };
@@ -58,9 +63,6 @@ export function ScanScreen({ navigation }) {
         onBarcodeScanned={handleScan}
         barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
       />
-      <View style={s.overlay}>
-        <View style={s.frame} />
-      </View>
       <Text style={s.hint}>Point at someone's Profile QR code</Text>
     </View>
   );
@@ -74,14 +76,6 @@ const s = StyleSheet.create({
   },
   msg:    { color: '#fff', textAlign: 'center', fontSize: 15 },
   camera: { flex: 1 },
-  overlay: {
-    ...StyleSheet.absoluteFillObject,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  frame: {
-    width: 220, height: 220,
-    borderWidth: 2, borderColor: '#2563eb', borderRadius: 12,
-  },
   hint: {
     color: '#fff', textAlign: 'center',
     padding: 16, backgroundColor: '#0a0a1a', fontSize: 14,

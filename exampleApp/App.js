@@ -1,20 +1,26 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { View, ActivityIndicator, Text, StyleSheet } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { AppProvider, useApp } from './src/state/AppContext';
-import { AppNavigator }        from './src/navigation/AppNavigator';
+import { AppProvider, useApp }       from './src/state/AppContext';
+import { AppNavigator }              from './src/navigation/AppNavigator';
 import { SetupScreen, IDENTITY_KEY } from './src/screens/SetupScreen';
-import { BleManager }          from './src/ble/BleManager';
-import { MeshRouter }          from './src/mesh/MeshRouter';
-import { PeerManager }         from './src/mesh/peerManager';
-import { RealCrypto }          from './src/crypto/RealCrypto';
+import { BleManager }                from './src/ble/BleManager';
+import { MeshRouter }                from './src/mesh/MeshRouter';
+import { PeerManager }               from './src/mesh/peerManager';
+import { RealCrypto }                from './src/crypto/RealCrypto';
+import { ContactNotifModal }         from './src/components/ContactNotifModal';
+import { MeetingPointTracker }       from './src/services/MeetingPointTracker';
 
 const CONTACTS_KEY = 'contacts_v1';
 
 function AppInner() {
   const { state, dispatch } = useApp();
-  const [initError, setInitError] = useState(null);
+  const [initError, setInitError]       = useState(null);
+  const [contactNotif, setContactNotif] = useState(null);
+  const transportRef                    = useRef(null);
+  const stateRef                        = useRef(state);
+  useEffect(() => { stateRef.current = state; }, [state]);
 
   // ── Step 1: Initialise crypto on launch ─────────────────────────────────────
   useEffect(() => {
@@ -53,10 +59,9 @@ function AppInner() {
 
   // ── Step 2: Persist contacts whenever they change ────────────────────────────
   useEffect(() => {
-    if (state.contacts.length > 0) {
-      AsyncStorage.setItem(CONTACTS_KEY, JSON.stringify(state.contacts))
-        .catch(e => console.warn('[APP] contacts save failed:', e));
-    }
+    if (!state.identity) return; // don't overwrite before initial load completes
+    AsyncStorage.setItem(CONTACTS_KEY, JSON.stringify(state.contacts))
+      .catch(e => console.warn('[APP] contacts save failed:', e));
   }, [state.contacts]);
 
   // ── Step 3: Start BLE once identity + crypto are both ready ─────────────────
@@ -71,7 +76,33 @@ function AppInner() {
       state.identity,
       null,
       state.crypto,
-      (message) => dispatch({ type: 'ADD_MESSAGE', payload: message })
+      (message) => {
+        dispatch({ type: 'ADD_MESSAGE', payload: message });
+        if (message.type === 'meetingpoint') {
+          try {
+            const coords = JSON.parse(message.body);
+            dispatch({
+              type: 'ADD_MEETING_POINT',
+              payload: {
+                id:               message.id,
+                contactPubkey:    message.fromId,
+                contactNickname:  message.from,
+                meetLat:          coords.meetLat / 1e6,
+                meetLng:          coords.meetLng / 1e6,
+                arrived:          false,
+              },
+            });
+          } catch (e) {
+            console.warn('[APP] failed to parse meeting point:', e.message);
+          }
+        }
+      },
+      (contact, type) => {
+        console.log('[APP] contact_req/ack received — auto-adding:', contact.nickname, type);
+        state.crypto.registerPeerKey(contact.pubkey, contact.nickname);
+        dispatch({ type: 'ADD_CONTACT', payload: contact });
+        if (type === 'contact_req') setContactNotif({ ...contact, type });
+      }
     );
 
     const transport = new BleManager({
@@ -84,9 +115,21 @@ function AppInner() {
     meshRouter.start();
     dispatch({ type: 'SET_ROUTER', payload: meshRouter });
 
+    transportRef.current = transport;
     transport.start().catch(e => console.error('[BLE] start failed:', e));
 
-    return () => transport.stop();
+    const tracker = new MeetingPointTracker({
+      getState:  () => stateRef.current,
+      onArrived: (id)  => dispatch({ type: 'MARK_ARRIVED', payload: id }),
+      onMessage: (msg) => dispatch({ type: 'ADD_MESSAGE', payload: msg }),
+    });
+    tracker.start();
+
+    return () => {
+      transport.stop();
+      transportRef.current = null;
+      tracker.stop();
+    };
   }, [state.identity, state.crypto]);
 
   // ── Render ───────────────────────────────────────────────────────────────────
@@ -109,8 +152,24 @@ function AppInner() {
     );
   }
 
+  const deleteAccount = async () => {
+    console.log('[APP] deleting account...');
+    transportRef.current?.stop();
+    await AsyncStorage.multiRemove([IDENTITY_KEY, CONTACTS_KEY, 'keypair_v1']);
+    dispatch({ type: 'RESET' });
+  };
+
   if (!state.identity) return <SetupScreen />;
-  return <AppNavigator />;
+
+  return (
+    <>
+      <AppNavigator onDeleteAccount={deleteAccount} />
+      <ContactNotifModal
+        notif={contactNotif}
+        onDismiss={() => setContactNotif(null)}
+      />
+    </>
+  );
 }
 
 export default function App() {
