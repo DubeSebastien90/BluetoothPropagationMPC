@@ -10,7 +10,6 @@ export class MeshRouter {
     this.onMessageForMe   = onMessageForMe;
     this.onContactRequest = onContactRequest ?? (() => {});
     this.onGroupInvite    = onGroupInvite    ?? (() => {});
-    this.getMyGroups      = () => [];         // overridden by App.js after construction
     this.seen             = new Map();
     this.SEEN_TTL_MS      = 60_000;
   }
@@ -43,12 +42,13 @@ export class MeshRouter {
 
   sendGroupMessage(group, body) {
     const packet = createPacket({
-      from:   this.identity.nickname,
-      fromId: this.identity.pubkey,
-      to:     group.name,
-      toId:   group.groupId,
+      from:    this.identity.nickname,
+      fromId:  this.identity.pubkey,
+      to:      group.name,
+      toId:    'all',       // rides broadcast path — no stale closure needed
+      groupId: group.groupId, // UI tag so only members show it in their group screen
       body,
-      type:   'msg',
+      type:    'msg',
     });
     console.log(TAG, 'sending group message to', group.name, '(', group.groupId, ')');
     this.seen.set(packet.id, Date.now());
@@ -168,21 +168,6 @@ export class MeshRouter {
         console.warn(TAG, 'contact_ack parse failed:', e.message);
       }
       return;
-    }
-
-    // Deliver group messages
-    const myGroupIds = this.getMyGroups();
-    if (myGroupIds.includes(packet.toId)) {
-      console.log(TAG, 'group message for', packet.toId, '— from:', packet.from);
-      this.onMessageForMe({
-        id:     packet.id,
-        from:   packet.from,
-        fromId: packet.fromId,
-        to:     packet.to,
-        toId:   packet.toId,
-        body:   packet.body,
-        ts:     packet.ts,
-      });
     }
 
     const isBroadcast = packet.toId === 'all';

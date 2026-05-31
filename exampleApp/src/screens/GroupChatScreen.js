@@ -15,7 +15,7 @@ export function GroupChatScreen({ route }) {
 
   const myPubkey = state.identity?.pubkey;
 
-  const thread = state.messages.filter(m => m.toId === group.groupId);
+  const thread = state.messages.filter(m => m.groupId === group.groupId);
 
   const send = () => {
     if (!input.trim() || !state.router) return;
@@ -27,13 +27,14 @@ export function GroupChatScreen({ route }) {
     dispatch({
       type: 'ADD_MESSAGE',
       payload: {
-        id:     Date.now().toString(),
-        from:   state.identity.nickname,
-        fromId: myPubkey,
-        to:     group.name,
-        toId:   group.groupId,
+        id:      Date.now().toString(),
+        from:    state.identity.nickname,
+        fromId:  myPubkey,
+        to:      group.name,
+        toId:    'all',
+        groupId: group.groupId,
         body,
-        ts:     Date.now(),
+        ts:      Date.now(),
       },
     });
 
