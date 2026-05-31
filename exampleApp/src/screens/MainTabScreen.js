@@ -3,7 +3,7 @@ import {
   View, Text, FlatList, TextInput, TouchableOpacity,
   StyleSheet, Alert, Image, KeyboardAvoidingView, Platform, ScrollView,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import QRCode from 'react-native-qrcode-svg';
 import { CameraView, useCameraPermissions } from 'expo-camera';
@@ -278,13 +278,9 @@ const af = StyleSheet.create({
 
   qrCard: {
     alignSelf: 'stretch',
-    backgroundColor: 'rgba(255,255,255,0.16)',
     borderRadius: 18,
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.52)',
     padding: 20, alignItems: 'center', gap: 14,
     overflow: 'hidden',
-    shadowColor: '#001840', shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.22, shadowRadius: 14, elevation: 6,
   },
   qrCardReflet: {
     position: 'absolute', top: 0, left: '8%', right: '8%', height: 1.5,
@@ -361,6 +357,7 @@ function BroadcastTab() {
   const { state, dispatch } = useApp();
   const [input, setInput]   = useState('');
   const listRef             = useRef(null);
+  const insets              = useSafeAreaInsets();
 
   const broadcasts = state.messages.filter(m => m.toId === 'all');
 
@@ -387,8 +384,8 @@ function BroadcastTab() {
   return (
     <KeyboardAvoidingView
       style={bc.flex}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 112 : 0}
+      behavior="padding"
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 108 : 66 + insets.bottom}
     >
       <FlatList
         ref={listRef}
@@ -454,26 +451,30 @@ const bc = StyleSheet.create({
     textAlign: 'center', lineHeight: 21,
   },
 
-  bubble:     { maxWidth: '78%', paddingHorizontal: 11, paddingVertical: 7, gap: 2 },
+  bubble:     { maxWidth: '72%', paddingHorizontal: 11, paddingVertical: 7 },
   bubbleMine: {
     alignSelf: 'flex-end',
-    backgroundColor: 'rgba(0,50,120,0.70)',
+    backgroundColor: '#0077B6',
     borderTopLeftRadius: 14, borderTopRightRadius: 14,
     borderBottomLeftRadius: 14, borderBottomRightRadius: 4,
-    borderWidth: 1, borderColor: 'rgba(0,150,210,0.28)',
+    borderWidth: 1, borderColor: 'rgba(0,150,210,0.32)',
+    shadowColor: '#001840', shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.18, shadowRadius: 5, elevation: 3,
   },
   bubbleThem: {
     alignSelf: 'flex-start',
-    backgroundColor: 'rgba(255,255,255,0.90)',
+    backgroundColor: 'rgba(255,255,255,0.92)',
     borderTopLeftRadius: 14, borderTopRightRadius: 14,
     borderBottomLeftRadius: 4, borderBottomRightRadius: 14,
-    borderWidth: 1, borderColor: 'rgba(120,190,230,0.35)',
+    borderWidth: 1.5, borderColor: 'rgba(120,190,230,0.38)',
+    shadowColor: '#0050A0', shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.09, shadowRadius: 5, elevation: 2,
   },
-  bubbleSender: { color: '#4488AA', fontSize: 10, fontWeight: '700' },
+  bubbleSender: { color: '#4488AA', fontSize: 10, fontWeight: '700', marginBottom: 2 },
   bodyMine:  { color: '#fff',    fontSize: 13, lineHeight: 18 },
   bodyThem:  { color: '#003366', fontSize: 13, lineHeight: 18 },
-  metaMine:  { color: 'rgba(150,195,240,0.65)', fontSize: 10 },
-  metaThem:  { color: '#88BBCC',                fontSize: 10 },
+  metaMine:  { color: 'rgba(180,215,245,0.70)', fontSize: 10, marginTop: 3 },
+  metaThem:  { color: '#88BBCC',                fontSize: 10, marginTop: 3 },
 
   /* Wii input bar */
   inputBar: {
