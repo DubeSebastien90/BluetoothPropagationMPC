@@ -75,12 +75,12 @@ export function PickMeetingPointScreen({ route, navigation }) {
               animationDuration={300}
             />
 
-            {/* Current user — blue dot */}
-            {myLoc && (
-              <MapboxGL.PointAnnotation id="me" coordinate={[myLoc.lng, myLoc.lat]}>
-                <View style={s.pinBlue} />
-              </MapboxGL.PointAnnotation>
-            )}
+            <MapboxGL.UserLocation
+              visible
+              showsUserHeadingIndicator
+              puckBearing="heading"
+              puckBearingEnabled
+            />
 
             {/* Proposed meeting point — flag */}
             {meetPoint && (
@@ -112,10 +112,6 @@ const s = StyleSheet.create({
   center:      { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 16 },
   loadingText: { color: '#555', fontSize: 14 },
   map:         { flex: 1 },
-  pinBlue: {
-    width: 16, height: 16, borderRadius: 8,
-    backgroundColor: '#2563eb', borderWidth: 2, borderColor: '#fff',
-  },
   flagIcon: { fontSize: 28 },
   hint: {
     position: 'absolute', top: 16, alignSelf: 'center',
