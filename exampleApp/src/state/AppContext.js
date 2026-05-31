@@ -5,6 +5,7 @@ const initialState = {
   messages:      [],     // { id, from, fromId, to, toId, body, type, ts }[]
   peers:         [],     // { deviceId, name, connectedAt }[]
   contacts:      [],     // { nickname, pubkey }[]
+  topics:        [],     // string[] — subscribed topic names
   router:        null,   // MeshRouter instance
   crypto:        null,   // RealCrypto (or NullCrypto) instance
   meetingPoints: [],     // { id, contactPubkey, contactNickname, meetLat, meetLng, arrived }[]
@@ -27,6 +28,14 @@ function reducer(state, action) {
       return { ...state, contacts: action.payload };
     case 'REMOVE_CONTACT':
       return { ...state, contacts: state.contacts.filter(c => c.pubkey !== action.payload) };
+    case 'SUBSCRIBE_TOPIC': {
+      if (state.topics.includes(action.payload)) return state;
+      return { ...state, topics: [...state.topics, action.payload] };
+    }
+    case 'UNSUBSCRIBE_TOPIC':
+      return { ...state, topics: state.topics.filter(t => t !== action.payload) };
+    case 'SET_TOPICS':
+      return { ...state, topics: action.payload };
     case 'SET_ROUTER':
       return { ...state, router: action.payload };
     case 'SET_CRYPTO':

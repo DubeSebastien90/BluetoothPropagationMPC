@@ -10,7 +10,7 @@ export function BroadcastScreen() {
   const [input, setInput]   = useState('');
   const listRef             = useRef(null);
 
-  const broadcasts = state.messages.filter(m => m.toId === 'all');
+  const broadcasts = state.messages.filter(m => m.toId === 'all' && !m.topic);
 
   const send = () => {
     if (!input.trim() || !state.router) return;

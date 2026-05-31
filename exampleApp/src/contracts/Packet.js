@@ -18,7 +18,7 @@
 
 export const TTL_START = 5;
 
-export function createPacket({ from, fromId, to, toId, body, type = 'msg' }) {
+export function createPacket({ from, fromId, to, toId, body, type = 'msg', topic = null }) {
   return {
     id:     Math.random().toString(36).slice(2, 6),
     from,
@@ -28,6 +28,7 @@ export function createPacket({ from, fromId, to, toId, body, type = 'msg' }) {
     ttl:    TTL_START,
     body,
     type,
+    ...(topic && { topic }),
     ts:     Date.now(),
   };
 }
