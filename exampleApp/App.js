@@ -20,6 +20,10 @@ function AppInner() {
   const [contactNotif, setContactNotif] = useState(null);
   const [groupNotif, setGroupNotif]     = useState(null);
   const transportRef                    = useRef(null);
+  const groupsRef                       = useRef([]);
+
+  // Keep groupsRef current every render so router closures never go stale
+  groupsRef.current = state.groups;
 
   // ── Step 1: Initialise crypto on launch ─────────────────────────────────────
   useEffect(() => {
@@ -100,7 +104,7 @@ function AppInner() {
       }
     );
 
-    meshRouter.getMyGroups = () => state.groups.map(g => g.groupId);
+    meshRouter.getMyGroups = () => groupsRef.current.map(g => g.groupId);
 
     const transport = new BleManager({
       onPacketReceived:   (packet, fromId) => meshRouter._handleIncoming(packet, fromId),

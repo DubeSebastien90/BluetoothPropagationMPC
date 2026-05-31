@@ -26,7 +26,8 @@ export class MeshRouter {
   }
 
   sendGroupInvite(group, contact) {
-    const body = JSON.stringify(group);
+    const rawBody = JSON.stringify(group);
+    const body = this._tryEncrypt(rawBody, contact.pubkey); // consistent with DMs
     const packet = createPacket({
       from:   this.identity.nickname,
       fromId: this.identity.pubkey,
@@ -114,11 +115,13 @@ export class MeshRouter {
     const isForMe = packet.toId === this.identity.pubkey;
 
     // Handle group_invite — consume, do not relay
+    // type tells us the body is JSON (possibly encrypted like a DM — _tryDecrypt handles both)
     if (packet.type === 'group_invite' && isForMe) {
       console.log(TAG, 'group_invite from', packet.from);
       try {
-        const decryptedBody = this._tryDecrypt(packet.body, packet.fromId);
-        const group = JSON.parse(decryptedBody);
+        // _tryDecrypt returns raw body if no key — safe for both plaintext and encrypted
+        const body = this._tryDecrypt(packet.body, packet.fromId);
+        const group = JSON.parse(body);
         if (group.groupId && group.name && group.members) {
           this.onGroupInvite(group);
         }

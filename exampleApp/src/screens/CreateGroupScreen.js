@@ -42,9 +42,17 @@ export function CreateGroupScreen({ navigation }) {
 
     dispatch({ type: 'ADD_GROUP', payload: group });
 
+    const peersConnected = state.peers.length > 0;
     selectedContacts.forEach(contact => {
       state.router.sendGroupInvite(group, contact);
     });
+
+    if (!peersConnected) {
+      Alert.alert(
+        'No peers in range',
+        'Group created, but no one is connected right now. Make sure members are nearby and have the app open, then recreate the group.',
+      );
+    }
 
     navigation.replace('GroupChat', { group });
   };
