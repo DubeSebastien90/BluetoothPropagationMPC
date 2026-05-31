@@ -39,7 +39,6 @@ export function SubscribeTopicScreen({ navigation }) {
           <Text style={s.label}>Topic name</Text>
 
           <View style={s.inputCard}>
-            <View style={s.inputCardReflet} />
             <TextInput
               style={s.input}
               value={name}
@@ -96,10 +95,6 @@ const s = StyleSheet.create({
     overflow: 'hidden',
     shadowColor: '#001840', shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.14, shadowRadius: 8, elevation: 3,
-  },
-  inputCardReflet: {
-    position: 'absolute', top: 0, left: '8%', right: '8%', height: 1.5,
-    backgroundColor: 'rgba(255,255,255,0.88)', borderRadius: 9999,
   },
   input: {
     color: '#fff', backgroundColor: 'transparent',

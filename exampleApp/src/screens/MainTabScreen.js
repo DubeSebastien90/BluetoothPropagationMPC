@@ -14,12 +14,12 @@ const LOGO   = require('../../assets/toot_logo.png');
 const NO_ONE = require('../../assets/toot_no_one.png');
 
 const ORB_TINTS = [
-  'rgba(200, 50,  20, 0.38)',
-  'rgba( 30, 150,  50, 0.38)',
-  'rgba(130,  40, 220, 0.38)',
-  'rgba(220, 130,   0, 0.38)',
-  'rgba(  0, 160, 160, 0.38)',
-  'rgba(  0, 100, 180, 0.38)',
+  '#E53E3E',
+  '#38A169',
+  '#805AD5',
+  '#DD6B20',
+  '#00B4D8',
+  '#3182CE',
 ];
 function orbColor(nickname) {
   return ORB_TINTS[(nickname.charCodeAt(0) || 0) % ORB_TINTS.length];
@@ -116,7 +116,7 @@ function ContactsTab({ navigation }) {
               activeOpacity={0.80}
             >
               <View style={ct.rowGloss} />
-              <View style={[ct.orb, { backgroundColor: 'rgba(0,160,160,0.38)' }]}>
+              <View style={[ct.orb, { backgroundColor: '#00B4D8' }]}>
                 <Text style={ct.orbText}>#</Text>
                 <View style={ct.orbReflet} />
               </View>
@@ -306,7 +306,6 @@ function AddFriendTab() {
       {/* ── My QR code ── */}
       <Text style={af.sectionLabel}>your code</Text>
       <View style={af.qrCard}>
-        <View style={af.qrCardReflet} />
         <View style={af.qrWrap}>
           {qrValue && (
             <QRCode
@@ -360,10 +359,6 @@ const af = StyleSheet.create({
     borderRadius: 18,
     padding: 20, alignItems: 'center', gap: 14,
     overflow: 'hidden',
-  },
-  qrCardReflet: {
-    position: 'absolute', top: 0, left: '8%', right: '8%', height: 1.5,
-    backgroundColor: 'rgba(255,255,255,0.90)', borderRadius: 9999,
   },
   qrWrap: {
     backgroundColor: '#fff', padding: 12, borderRadius: 12,

@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { View, ActivityIndicator, Text, StyleSheet } from 'react-native';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { View, ActivityIndicator, Text, StyleSheet, Image } from 'react-native';
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AppProvider, useApp }       from './src/state/AppContext';
 import { AppNavigator }              from './src/navigation/AppNavigator';
@@ -15,9 +16,19 @@ import { MeetingPointTracker }       from './src/services/MeetingPointTracker';
 const CONTACTS_KEY = 'contacts_v1';
 const TOPICS_KEY   = 'topics_v1';
 
+const LOGO = require('./assets/toot_logo.png');
+
+const GRADIENT = {
+  colors: ['#004E92', '#0077B6', '#00B4D8', '#48CAE4', '#ADE8F4', '#CAF0F8'],
+  locations: [0, 0.18, 0.42, 0.65, 0.85, 1.0],
+  start: { x: 0.5, y: 0 },
+  end:   { x: 0.5, y: 1 },
+};
+
 function AppInner() {
   const { state, dispatch } = useApp();
   const [initError, setInitError]       = useState(null);
+  const [deleted, setDeleted]           = useState(false);
   const [contactNotif, setContactNotif] = useState(null);
   const transportRef                    = useRef(null);
   const stateRef                        = useRef(state);
@@ -146,21 +157,47 @@ function AppInner() {
 
   // ── Render ───────────────────────────────────────────────────────────────────
 
+  if (deleted) {
+    return (
+      <LinearGradient {...GRADIENT} style={s.shell}>
+        <SafeAreaView style={s.center}>
+          <View style={s.infoCard}>
+            <View style={s.infoCardGloss} />
+            <Text style={s.infoIcon}>🗑</Text>
+            <Text style={s.infoTitle}>Account deleted</Text>
+            <Text style={s.infoBody}>
+              Close and reopen the app to reconnect.
+            </Text>
+          </View>
+        </SafeAreaView>
+      </LinearGradient>
+    );
+  }
+
   if (initError) {
     return (
-      <View style={s.center}>
-        <Text style={s.errorTitle}>Startup error</Text>
-        <Text style={s.errorMsg}>{initError}</Text>
-      </View>
+      <LinearGradient {...GRADIENT} style={s.shell}>
+        <SafeAreaView style={s.center}>
+          <View style={s.infoCard}>
+            <View style={s.infoCardGloss} />
+            <Text style={s.infoIcon}>⚠️</Text>
+            <Text style={s.infoTitle}>Startup error</Text>
+            <Text style={s.infoBody}>{initError}</Text>
+          </View>
+        </SafeAreaView>
+      </LinearGradient>
     );
   }
 
   if (!state.crypto) {
     return (
-      <View style={s.center}>
-        <ActivityIndicator size="large" color="#2563eb" />
-        <Text style={s.loadingText}>Initialising...</Text>
-      </View>
+      <LinearGradient {...GRADIENT} style={s.shell}>
+        <SafeAreaView style={s.center}>
+          <Image source={LOGO} style={s.loadingLogo} resizeMode="contain" />
+          <ActivityIndicator size="large" color="rgba(255,255,255,0.80)" />
+          <Text style={s.loadingText}>Initialising...</Text>
+        </SafeAreaView>
+      </LinearGradient>
     );
   }
 
@@ -168,6 +205,7 @@ function AppInner() {
     console.log('[APP] deleting account...');
     transportRef.current?.stop();
     await AsyncStorage.multiRemove([IDENTITY_KEY, CONTACTS_KEY, TOPICS_KEY, 'keypair_v1']);
+    setDeleted(true);
     dispatch({ type: 'RESET' });
   };
 
@@ -195,11 +233,29 @@ export default function App() {
 }
 
 const s = StyleSheet.create({
-  center: {
-    flex: 1, backgroundColor: '#0a0a1a',
-    alignItems: 'center', justifyContent: 'center', gap: 16,
+  shell:  { flex: 1 },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32, gap: 20 },
+
+  loadingLogo: { width: 72, height: 72, borderRadius: 20, marginBottom: 4 },
+  loadingText: { color: 'rgba(255,255,255,0.72)', fontSize: 14, fontWeight: '600' },
+
+  infoCard: {
+    alignSelf: 'stretch',
+    backgroundColor: 'rgba(255,255,255,0.13)',
+    borderRadius: 20, borderWidth: 1, borderColor: 'rgba(255,255,255,0.40)',
+    padding: 28, alignItems: 'center', gap: 10, overflow: 'hidden',
+    shadowColor: '#001840', shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.16, shadowRadius: 12, elevation: 4,
   },
-  loadingText: { color: '#555', fontSize: 14 },
-  errorTitle:  { color: '#ff5252', fontSize: 18, fontWeight: 'bold' },
-  errorMsg:    { color: '#ff5252', fontSize: 13, textAlign: 'center', paddingHorizontal: 32 },
+  infoCardGloss: {
+    position: 'absolute', top: 0, left: 0, right: 0, height: '50%',
+    backgroundColor: 'rgba(255,255,255,0.14)',
+    borderTopLeftRadius: 20, borderTopRightRadius: 20,
+  },
+  infoIcon:  { fontSize: 36 },
+  infoTitle: { color: '#fff', fontSize: 20, fontWeight: '900', textAlign: 'center' },
+  infoBody:  {
+    color: 'rgba(255,255,255,0.65)', fontSize: 14, lineHeight: 22,
+    textAlign: 'center',
+  },
 });
