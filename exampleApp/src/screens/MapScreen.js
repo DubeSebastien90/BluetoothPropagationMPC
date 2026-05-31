@@ -43,9 +43,14 @@ export function MapScreen({ route }) {
   const cameraRef         = useRef(null);
 
   useEffect(() => {
-    Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High })
-      .then(({ coords }) => setMyLoc({ lat: coords.latitude, lng: coords.longitude }))
-      .catch(() => setError('Could not get your location.'));
+    let subscription;
+    Location.watchPositionAsync(
+      { accuracy: Location.Accuracy.High, timeInterval: 2000, distanceInterval: 2 },
+      ({ coords }) => setMyLoc({ lat: coords.latitude, lng: coords.longitude }),
+    ).then(sub => { subscription = sub; })
+     .catch(() => setError('Could not get your location.'));
+
+    return () => subscription?.remove();
   }, []);
 
   useEffect(() => {
