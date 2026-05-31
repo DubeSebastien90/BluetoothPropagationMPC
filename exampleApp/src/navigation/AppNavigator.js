@@ -7,7 +7,8 @@ import { ChatScreen }       from '../screens/ChatScreen';
 import { ProfileScreen }    from '../screens/ProfileScreen';
 import { ScanScreen }       from '../screens/ScanScreen';
 import { BroadcastScreen }  from '../screens/BroadcastScreen';
-import { MapScreen }        from '../screens/MapScreen';
+import { MapScreen }             from '../screens/MapScreen';
+import { PickMeetingPointScreen } from '../screens/PickMeetingPointScreen';
 import { useApp }           from '../state/AppContext';
 
 const Stack = createNativeStackNavigator();
@@ -72,6 +73,11 @@ export function AppNavigator() {
           name="Map"
           component={MapScreen}
           options={{ title: '📍 Location' }}
+        />
+        <Stack.Screen
+          name="PickMeetingPoint"
+          component={PickMeetingPointScreen}
+          options={{ title: '🏴 Set Meeting Point' }}
         />
       </Stack.Navigator>
     </NavigationContainer>

@@ -37,10 +37,13 @@ async function ensureOfflinePack(lat1, lng1, lat2, lng2) {
 }
 
 export function MapScreen({ route }) {
-  const { lat, lng }    = route.params;
+  const params          = route.params;
+  const isMeetingPoint  = params.type === 'meetingpoint';
+
   const [myLoc, setMyLoc] = useState(null);
   const [error, setError] = useState(null);
   const cameraRef         = useRef(null);
+  const fittedRef         = useRef(false);
 
   useEffect(() => {
     let subscription;
@@ -49,47 +52,83 @@ export function MapScreen({ route }) {
       ({ coords }) => setMyLoc({ lat: coords.latitude, lng: coords.longitude }),
     ).then(sub => { subscription = sub; })
      .catch(() => setError('Could not get your location.'));
-
     return () => subscription?.remove();
   }, []);
 
+  // For location messages, fit camera to shared point + current user on first fix
+  // For meeting point messages, fit camera to meetPoint + fromPoint immediately
+  const centerLat = isMeetingPoint ? params.meetLat : params.lat;
+  const centerLng = isMeetingPoint ? params.meetLng : params.lng;
+
   useEffect(() => {
-    if (!myLoc) return;
-    ensureOfflinePack(lat, lng, myLoc.lat, myLoc.lng);
+    if (!myLoc || fittedRef.current) return;
+    fittedRef.current = true;
+    if (!isMeetingPoint) ensureOfflinePack(params.lat, params.lng, myLoc.lat, myLoc.lng);
   }, [myLoc]);
 
-  const bounds = myLoc ? {
-    ne:            [Math.max(lng, myLoc.lng) + 0.008, Math.max(lat, myLoc.lat) + 0.008],
-    sw:            [Math.min(lng, myLoc.lng) - 0.008, Math.min(lat, myLoc.lat) - 0.008],
-    paddingTop:    80,
-    paddingBottom: 80,
-    paddingLeft:   80,
-    paddingRight:  80,
+  const meetingBounds = isMeetingPoint && !fittedRef.current ? {
+    ne:            [Math.max(params.meetLng, params.fromLng) + 0.008, Math.max(params.meetLat, params.fromLat) + 0.008],
+    sw:            [Math.min(params.meetLng, params.fromLng) - 0.008, Math.min(params.meetLat, params.fromLat) - 0.008],
+    paddingTop:    80, paddingBottom: 80, paddingLeft: 80, paddingRight: 80,
   } : null;
+
+  const locationBounds = !isMeetingPoint && !fittedRef.current && myLoc ? {
+    ne:            [Math.max(params.lng, myLoc.lng) + 0.008, Math.max(params.lat, myLoc.lat) + 0.008],
+    sw:            [Math.min(params.lng, myLoc.lng) - 0.008, Math.min(params.lat, myLoc.lat) - 0.008],
+    paddingTop:    80, paddingBottom: 80, paddingLeft: 80, paddingRight: 80,
+  } : null;
+
+  const bounds = meetingBounds ?? locationBounds ?? null;
 
   return (
     <View style={s.container}>
       <MapboxGL.MapView style={s.map} styleURL={MapboxGL.StyleURL.Street}>
         <MapboxGL.Camera
           ref={cameraRef}
-          centerCoordinate={[lng, lat]}
+          centerCoordinate={[centerLng, centerLat]}
           zoomLevel={13}
           animationDuration={500}
           {...(bounds ? { bounds } : {})}
         />
 
-        {/* Shared location — red */}
-        <MapboxGL.PointAnnotation id="shared" coordinate={[lng, lat]}>
-          <View style={s.pinRed} />
-          <MapboxGL.Callout title="Shared location" />
-        </MapboxGL.PointAnnotation>
+        {isMeetingPoint ? (
+          <>
+            {/* Friend's location at time of sending — red dot */}
+            <MapboxGL.PointAnnotation id="from" coordinate={[params.fromLng, params.fromLat]}>
+              <View style={s.pinRed} />
+              <MapboxGL.Callout title="Their location" />
+            </MapboxGL.PointAnnotation>
 
-        {/* Current user — blue */}
-        {myLoc && (
-          <MapboxGL.PointAnnotation id="me" coordinate={[myLoc.lng, myLoc.lat]}>
-            <View style={s.pinBlue} />
-            <MapboxGL.Callout title="You" />
-          </MapboxGL.PointAnnotation>
+            {/* Proposed meeting point — flag */}
+            <MapboxGL.PointAnnotation id="meet" coordinate={[params.meetLng, params.meetLat]}>
+              <Text style={s.flagIcon}>🏴</Text>
+              <MapboxGL.Callout title="Meeting point" />
+            </MapboxGL.PointAnnotation>
+
+            {/* Current user — blue (live) */}
+            {myLoc && (
+              <MapboxGL.PointAnnotation id="me" coordinate={[myLoc.lng, myLoc.lat]}>
+                <View style={s.pinBlue} />
+                <MapboxGL.Callout title="You" />
+              </MapboxGL.PointAnnotation>
+            )}
+          </>
+        ) : (
+          <>
+            {/* Shared location — red */}
+            <MapboxGL.PointAnnotation id="shared" coordinate={[params.lng, params.lat]}>
+              <View style={s.pinRed} />
+              <MapboxGL.Callout title="Shared location" />
+            </MapboxGL.PointAnnotation>
+
+            {/* Current user — blue (live) */}
+            {myLoc && (
+              <MapboxGL.PointAnnotation id="me" coordinate={[myLoc.lng, myLoc.lat]}>
+                <View style={s.pinBlue} />
+                <MapboxGL.Callout title="You" />
+              </MapboxGL.PointAnnotation>
+            )}
+          </>
         )}
       </MapboxGL.MapView>
 
@@ -132,4 +171,5 @@ const s = StyleSheet.create({
   },
   overlayText: { color: '#fff', fontSize: 13 },
   errorText:   { color: '#ff5252', fontSize: 13 },
+  flagIcon:    { fontSize: 26 },
 });

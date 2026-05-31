@@ -5,7 +5,7 @@ import {
 } from 'react-native';
 import * as Location from 'expo-location';
 import { useApp } from '../state/AppContext';
-import { encodeLocation, decodeLocation } from '../utils/locationMessage';
+import { encodeLocation, decodeLocation, decodeMeetingPoint } from '../utils/locationMessage';
 
 /**
  * Props:
@@ -48,12 +48,20 @@ export function ChatScreen({ route, navigation }) {
   useEffect(() => {
     navigation.setOptions({
       headerRight: () => (
-        <TouchableOpacity onPress={shareLocation} style={s.headerBtn}>
-          <Text style={s.headerBtnText}>📍</Text>
-        </TouchableOpacity>
+        <View style={s.headerBtns}>
+          <TouchableOpacity
+            onPress={() => navigation.navigate('PickMeetingPoint', { contact })}
+            style={s.headerBtn}
+          >
+            <Text style={s.headerBtnText}>🏴</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={shareLocation} style={s.headerBtn}>
+            <Text style={s.headerBtnText}>📍</Text>
+          </TouchableOpacity>
+        </View>
       ),
     });
-  }, [navigation, shareLocation]);
+  }, [navigation, shareLocation, contact]);
 
   const thread = state.messages.filter(m =>
     (m.fromId === myPubkey       && m.toId === contact.pubkey) ||
@@ -95,16 +103,31 @@ export function ChatScreen({ route, navigation }) {
           </Text>
         }
         renderItem={({ item }) => {
-          const loc = decodeLocation(item.body);
+          const loc  = decodeLocation(item.body);
+          const meet = decodeMeetingPoint(item.body);
           const isMine = item.fromId === myPubkey;
           return (
             <View style={[s.bubble, isMine ? s.mine : s.theirs]}>
               {loc ? (
                 <TouchableOpacity
-                  onPress={() => navigation.navigate('Map', { lat: loc.lat, lng: loc.lng })}
+                  onPress={() => navigation.navigate('Map', { type: 'location', lat: loc.lat, lng: loc.lng })}
                 >
                   <Text style={s.locationIcon}>📍</Text>
                   <Text style={s.locationLabel}>Shared a location</Text>
+                  <Text style={s.locationHint}>Tap to open map</Text>
+                </TouchableOpacity>
+              ) : meet ? (
+                <TouchableOpacity
+                  onPress={() => navigation.navigate('Map', {
+                    type:    'meetingpoint',
+                    meetLat: meet.meetLat,
+                    meetLng: meet.meetLng,
+                    fromLat: meet.fromLat,
+                    fromLng: meet.fromLng,
+                  })}
+                >
+                  <Text style={s.locationIcon}>🏴</Text>
+                  <Text style={s.locationLabel}>Proposed a meeting point</Text>
                   <Text style={s.locationHint}>Tap to open map</Text>
                 </TouchableOpacity>
               ) : (
@@ -162,7 +185,8 @@ const s = StyleSheet.create({
     paddingHorizontal: 16, justifyContent: 'center',
   },
   sendBtnText:    { color: '#fff', fontWeight: 'bold' },
-  headerBtn:      { marginRight: 12, padding: 4 },
+  headerBtns:     { flexDirection: 'row', marginRight: 8 },
+  headerBtn:      { padding: 4, marginLeft: 4 },
   headerBtnText:  { fontSize: 22 },
   locationIcon:   { fontSize: 28, textAlign: 'center' },
   locationLabel:  { color: '#fff', fontWeight: '600', fontSize: 14, textAlign: 'center', marginTop: 4 },
