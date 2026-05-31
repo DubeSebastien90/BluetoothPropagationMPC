@@ -9,6 +9,8 @@ import { ScanScreen }            from '../screens/ScanScreen';
 import { BroadcastScreen }       from '../screens/BroadcastScreen';
 import { MapScreen }             from '../screens/MapScreen';
 import { PickMeetingPointScreen } from '../screens/PickMeetingPointScreen';
+import { CreateGroupScreen }     from '../screens/CreateGroupScreen';
+import { GroupChatScreen }       from '../screens/GroupChatScreen';
 import { useApp }                from '../state/AppContext';
 
 const Stack = createNativeStackNavigator();
@@ -79,6 +81,16 @@ export function AppNavigator({ onDeleteAccount }) {
           name="PickMeetingPoint"
           component={PickMeetingPointScreen}
           options={{ title: '🏴 Set Meeting Point' }}
+        />
+        <Stack.Screen
+          name="CreateGroup"
+          component={CreateGroupScreen}
+          options={{ title: 'New Group' }}
+        />
+        <Stack.Screen
+          name="GroupChat"
+          component={GroupChatScreen}
+          options={({ route }) => ({ title: route.params.group.name })}
         />
       </Stack.Navigator>
     </NavigationContainer>

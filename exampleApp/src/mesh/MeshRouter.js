@@ -3,12 +3,13 @@ import { createPacket } from '../contracts/Packet';
 const TAG = '[ROUTER]';
 
 export class MeshRouter {
-  constructor(identity, transport, crypto, onMessageForMe, onContactRequest) {
+  constructor(identity, transport, crypto, onMessageForMe, onContactRequest, onGroupInvite) {
     this.identity          = identity;
     this.transport         = transport;
     this.crypto            = crypto;
     this.onMessageForMe    = onMessageForMe;
     this.onContactRequest  = onContactRequest ?? (() => {});
+    this.onGroupInvite     = onGroupInvite    ?? (() => {});
     this.seen              = new Map();
     this.SEEN_TTL_MS       = 60_000;
   }
@@ -21,6 +22,36 @@ export class MeshRouter {
   stop() {
     console.log(TAG, 'stopped');
     this.transport.onPacketReceived = null;
+  }
+
+  sendGroupInvite(group) {
+    const packet = createPacket({
+      from:    this.identity.nickname,
+      fromId:  this.identity.pubkey,
+      to:      'all',
+      toId:    'all',
+      body:    JSON.stringify(group),
+      type:    'group_invite',
+      groupId: group.groupId,
+    });
+    console.log(TAG, 'group_invite broadcast for', group.name, '— members:', group.members.length);
+    this.seen.set(packet.id, Date.now());
+    this.transport.sendPacket(packet);
+  }
+
+  sendGroupMessage(group, body) {
+    const packet = createPacket({
+      from:    this.identity.nickname,
+      fromId:  this.identity.pubkey,
+      to:      'all',
+      toId:    'all',
+      body,
+      type:    'msg',
+      groupId: group.groupId,
+    });
+    console.log(TAG, 'group message to', group.name, '(', group.groupId, ')');
+    this.seen.set(packet.id, Date.now());
+    this.transport.sendPacket(packet);
   }
 
   sendContactRequest(contact) {
@@ -124,7 +155,22 @@ export class MeshRouter {
 
     const isBroadcast = packet.toId === 'all';
 
-    if (isForMe || isBroadcast) {
+    if (packet.type === 'group_invite' && isBroadcast) {
+      // Broadcast invite — check if my pubkey is in the member list
+      try {
+        const group    = JSON.parse(packet.body);
+        const isMember  = group.groupId && group.name && group.members &&
+                          group.members.some(m => m.pubkey === this.identity.pubkey);
+        const isCreator = packet.fromId === this.identity.pubkey;
+        if (isMember && !isCreator) {
+          console.log(TAG, 'group_invite — I am a member of', group.name);
+          this.onGroupInvite(group);
+        }
+      } catch (e) {
+        console.warn(TAG, 'group_invite parse failed:', e.message);
+      }
+      // Fall through to relay — don't call onMessageForMe
+    } else if (isForMe || isBroadcast) {
       console.log(TAG, isBroadcast ? 'broadcast for me' : 'direct message for me',
         '— from:', packet.from);
 
@@ -133,14 +179,15 @@ export class MeshRouter {
         : this._tryDecrypt(packet.body, packet.fromId);
 
       this.onMessageForMe({
-        id:     packet.id,
-        from:   packet.from,
-        fromId: packet.fromId,
-        to:     packet.to,
-        toId:   packet.toId,
-        body:   decryptedBody,
-        type:   packet.type ?? 'msg',
-        ts:     packet.ts,
+        id:      packet.id,
+        from:    packet.from,
+        fromId:  packet.fromId,
+        to:      packet.to,
+        toId:    packet.toId,
+        body:    decryptedBody,
+        type:    packet.type ?? 'msg',
+        ts:      packet.ts,
+        ...(packet.groupId && { groupId: packet.groupId }),
       });
     } else {
       console.log(TAG, 'packet not for me (to:', packet.to, ') — checking TTL...');

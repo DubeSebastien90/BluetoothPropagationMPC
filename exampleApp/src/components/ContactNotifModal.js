@@ -39,7 +39,31 @@ export function ContactNotifModal({ notif, onDismiss }) {
 
   if (!notif) return null;
 
-  const isReq = notif.type === 'contact_req';
+  const isGroupInvite = notif.type === 'group_invite';
+  const isReq         = notif.type === 'contact_req';
+
+  if (isGroupInvite) {
+    const members = notif.members ?? [];
+    return (
+      <Modal transparent animationType="none" visible={!!notif} onRequestClose={dismiss}>
+        <View style={s.backdrop}>
+          <Animated.View style={[s.card, { opacity }]}>
+            <View style={s.iconRow}><Text style={s.icon}>🫂</Text></View>
+            <Text style={s.title}>Group invite</Text>
+            <Text style={s.name}>{notif.name}</Text>
+            <Text style={s.sub}>You were added to this group.</Text>
+            <Text style={s.membersLabel}>Members</Text>
+            {members.map(m => (
+              <Text key={m.pubkey} style={s.memberItem}>{m.nickname}</Text>
+            ))}
+            <TouchableOpacity style={[s.btn, { marginTop: 20 }]} onPress={dismiss}>
+              <Text style={s.btnText}>Got it</Text>
+            </TouchableOpacity>
+          </Animated.View>
+        </View>
+      </Modal>
+    );
+  }
 
   return (
     <Modal transparent animationType="none" visible={!!notif} onRequestClose={dismiss}>
@@ -100,5 +124,7 @@ const s = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#2a2a2a',
   },
-  btnText: { color: '#fff', fontWeight: '600', fontSize: 14 },
+  btnText:      { color: '#fff', fontWeight: '600', fontSize: 14 },
+  membersLabel: { color: '#555', fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.8, marginTop: 12, marginBottom: 6 },
+  memberItem:   { color: '#aaa', fontSize: 14, marginBottom: 2 },
 });
