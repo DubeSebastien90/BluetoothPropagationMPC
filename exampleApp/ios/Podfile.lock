@@ -43,6 +43,10 @@ PODS:
     - ExpoModulesCore
   - ExpoKeepAwake (56.0.3):
     - ExpoModulesCore
+  - ExpoLinearGradient (56.0.4):
+    - ExpoModulesCore
+  - ExpoLocation (56.0.15):
+    - ExpoModulesCore
   - ExpoLogBox (56.0.12):
     - React-Core
   - ExpoModulesCore (56.0.14):
@@ -79,6 +83,14 @@ PODS:
   - hermes-engine (250829098.0.10):
     - hermes-engine/Pre-built (= 250829098.0.10)
   - hermes-engine/Pre-built (250829098.0.10)
+  - MapboxCommon (24.20.3):
+    - Turf (= 4.0.0)
+  - MapboxCoreMaps (11.20.3):
+    - MapboxCommon (= 24.20.3)
+  - MapboxMaps (11.20.3):
+    - MapboxCommon (= 24.20.3)
+    - MapboxCoreMaps (= 11.20.3)
+    - Turf (= 4.0.0)
   - MultiplatformBleAdapter (0.2.0)
   - RCTDeprecation (0.85.3)
   - RCTRequired (0.85.3)
@@ -1980,6 +1992,33 @@ PODS:
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
     - Yoga
+  - rnmapbox-maps (10.3.1):
+    - MapboxMaps (~> 11.20.1)
+    - React
+    - React-Core
+    - rnmapbox-maps/DynamicLibrary (= 10.3.1)
+    - Turf
+  - rnmapbox-maps/DynamicLibrary (10.3.1):
+    - hermes-engine
+    - MapboxMaps (~> 11.20.1)
+    - RCTRequired
+    - RCTTypeSafety
+    - React
+    - React-Core
+    - React-Core-prebuilt
+    - React-featureflags
+    - React-ImageManager
+    - React-jsi
+    - React-NativeModulesApple
+    - React-RCTFabric
+    - React-renderercss
+    - React-rendererdebug
+    - ReactCodegen
+    - ReactCommon/turbomodule/bridging
+    - ReactCommon/turbomodule/core
+    - ReactNativeDependencies
+    - Turf
+    - Yoga
   - RNScreens (4.25.2):
     - hermes-engine
     - RCTRequired
@@ -2072,6 +2111,7 @@ PODS:
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
     - Yoga
+  - Turf (4.0.0)
   - Yoga (0.0.0)
 
 DEPENDENCIES:
@@ -2085,6 +2125,8 @@ DEPENDENCIES:
   - ExpoFileSystem (from `../node_modules/expo/node_modules/expo-file-system/ios/ExpoFileSystem.podspec`)
   - ExpoFont (from `../node_modules/expo/node_modules/expo-font/ios/ExpoFont.podspec`)
   - ExpoKeepAwake (from `../node_modules/expo/node_modules/expo-keep-awake/ios`)
+  - ExpoLinearGradient (from `../node_modules/expo-linear-gradient/ios`)
+  - ExpoLocation (from `../node_modules/expo-location/ios/ExpoLocation.podspec`)
   - "ExpoLogBox (from `../node_modules/expo/node_modules/@expo/log-box`)"
   - ExpoModulesCore (from `../node_modules/expo-modules-core/ExpoModulesCore.podspec`)
   - ExpoModulesJSI (from `../node_modules/expo-modules-jsi/apple`)
@@ -2167,13 +2209,18 @@ DEPENDENCIES:
   - ReactCommon/turbomodule/core (from `../node_modules/react-native/ReactCommon`)
   - ReactNativeDependencies (from `../node_modules/react-native/third-party-podspecs/ReactNativeDependencies.podspec`)
   - "RNCAsyncStorage (from `../node_modules/@react-native-async-storage/async-storage`)"
+  - "rnmapbox-maps (from `../node_modules/@rnmapbox/maps`)"
   - RNScreens (from `../node_modules/react-native-screens`)
   - RNSVG (from `../node_modules/react-native-svg`)
   - Yoga (from `../node_modules/react-native/ReactCommon/yoga`)
 
 SPEC REPOS:
   trunk:
+    - MapboxCommon
+    - MapboxCoreMaps
+    - MapboxMaps
     - MultiplatformBleAdapter
+    - Turf
 
 EXTERNAL SOURCES:
   ble-peripheral:
@@ -2196,6 +2243,10 @@ EXTERNAL SOURCES:
     :podspec: "../node_modules/expo/node_modules/expo-font/ios/ExpoFont.podspec"
   ExpoKeepAwake:
     :path: "../node_modules/expo/node_modules/expo-keep-awake/ios"
+  ExpoLinearGradient:
+    :path: "../node_modules/expo-linear-gradient/ios"
+  ExpoLocation:
+    :podspec: "../node_modules/expo-location/ios/ExpoLocation.podspec"
   ExpoLogBox:
     :path: "../node_modules/expo/node_modules/@expo/log-box"
   ExpoModulesCore:
@@ -2359,6 +2410,8 @@ EXTERNAL SOURCES:
     :podspec: "../node_modules/react-native/third-party-podspecs/ReactNativeDependencies.podspec"
   RNCAsyncStorage:
     :path: "../node_modules/@react-native-async-storage/async-storage"
+  rnmapbox-maps:
+    :path: "../node_modules/@rnmapbox/maps"
   RNScreens:
     :path: "../node_modules/react-native-screens"
   RNSVG:
@@ -2377,12 +2430,17 @@ SPEC CHECKSUMS:
   ExpoFileSystem: d730a1cb33f2c91dec01561f0d710054fda32ae9
   ExpoFont: 6fe496f2be617ed4367f159f215dcc4ba27d37d6
   ExpoKeepAwake: 359c47a1d9ccc3a3c519bca6e39562cce230c5bb
+  ExpoLinearGradient: 16c2b9c6105444883d34958d573725de1293b8d0
+  ExpoLocation: ed45ae27d6eb115a84b16713f3e5a9c5822a5b24
   ExpoLogBox: 7aa03244fe5eeced5129e4ec7ad5bd9a3994378e
   ExpoModulesCore: 3afb1e2d82e92c72cf3dfebc17becd2fc537a064
   ExpoModulesJSI: f25a013ea9a79904bdd535e4bea0872e155cde09
   ExpoModulesWorklets: 3f847eb6ba544bd4b55d585f89b3b18f8cd73a72
   FBLazyVector: 24e62c765683b8d89006a88a2c8f5cf019f0074d
   hermes-engine: b6e75f97482bce0bd9c79e69e86d1756ede966fc
+  MapboxCommon: bd1554a0c6e66ac04c9ecd3611f3b7d772eeac7e
+  MapboxCoreMaps: 821019cdd87447ecd895872f4095232723961627
+  MapboxMaps: 6191d857abe0da0f3bdfb5a71349c532d55d7d9d
   MultiplatformBleAdapter: b1fddd0d499b96b607e00f0faa8e60648343dc1d
   RCTDeprecation: a4c521821fab57cbb125b36effe84d897d0dfa12
   RCTRequired: 9f3a7e5645d4bc3f551593de7550bb66ab6e42bc
@@ -2459,10 +2517,12 @@ SPEC CHECKSUMS:
   ReactCommon: 7dfc3250793bf36cf221096ff59e1179e13eef7f
   ReactNativeDependencies: 618098891d1260ff3c43d43c316c90f8d0e9b40d
   RNCAsyncStorage: 2ad919e88b8bc2cd80e8697ce66d04d006743283
+  rnmapbox-maps: 424ce5b089be0d753083b5ad70a3959eb8603891
   RNScreens: 991cc417cd396602a6cf59a42139e5a9d91462a9
   RNSVG: 04044c3abcf177fd674a1a3d13097efa1adebcbe
+  Turf: c9eb11a65d96af58cac523460fd40fec5061b081
   Yoga: 77dfa8673de2874e1855002ae59c68b8be9b007b
 
-PODFILE CHECKSUM: c6173f1bb555f593c07bffc077594a91c156c275
+PODFILE CHECKSUM: bc97a98daa29af1a54e876487e0149e033d7bad6
 
 COCOAPODS: 1.16.2

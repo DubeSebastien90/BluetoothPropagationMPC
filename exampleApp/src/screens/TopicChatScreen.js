@@ -91,7 +91,7 @@ export function TopicChatScreen({ route }) {
           />
           <TouchableOpacity style={s.sendBtn} onPress={send} activeOpacity={0.75}>
             <View style={s.sendBtnGloss} />
-            <Text style={s.sendBtnText}>›</Text>
+            <Text style={s.sendBtnText}>↑</Text>
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
@@ -155,15 +155,16 @@ const s = StyleSheet.create({
   },
   sendBtn: {
     width: 38, height: 38, borderRadius: 19,
-    backgroundColor: 'rgba(255,255,255,0.25)',
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.58)',
+    backgroundColor: '#0077B6',
     alignItems: 'center', justifyContent: 'center',
     overflow: 'hidden', zIndex: 1,
+    shadowColor: '#001840', shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.22, shadowRadius: 5, elevation: 3,
   },
   sendBtnGloss: {
     position: 'absolute', top: 0, left: 0, right: 0, height: '44%',
-    backgroundColor: 'rgba(255,255,255,0.30)',
+    backgroundColor: 'rgba(255,255,255,0.22)',
     borderTopLeftRadius: 19, borderTopRightRadius: 19,
   },
-  sendBtnText: { color: '#004E92', fontSize: 18, fontWeight: '800', zIndex: 1 },
+  sendBtnText: { color: '#fff', fontSize: 18, fontWeight: '800', zIndex: 1 },
 });

@@ -508,7 +508,7 @@ function BroadcastTab() {
         />
         <TouchableOpacity style={bc.sendBtn} onPress={send} activeOpacity={0.75}>
           <View style={bc.sendBtnGloss} />
-          <Text style={bc.sendBtnText}>›</Text>
+          <Text style={bc.sendBtnText}>↑</Text>
         </TouchableOpacity>
       </View>
     </KeyboardAvoidingView>
@@ -581,19 +581,18 @@ const bc = StyleSheet.create({
   },
   sendBtn: {
     width: 38, height: 38, borderRadius: 19,
-    backgroundColor: 'rgba(255,255,255,0.25)',
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.58)',
+    backgroundColor: '#0077B6',
     alignItems: 'center', justifyContent: 'center',
     overflow: 'hidden', zIndex: 1,
     shadowColor: '#001840', shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.12, shadowRadius: 4, elevation: 2,
+    shadowOpacity: 0.22, shadowRadius: 5, elevation: 3,
   },
   sendBtnGloss: {
     position: 'absolute', top: 0, left: 0, right: 0, height: '44%',
-    backgroundColor: 'rgba(255,255,255,0.30)',
+    backgroundColor: 'rgba(255,255,255,0.22)',
     borderTopLeftRadius: 19, borderTopRightRadius: 19,
   },
-  sendBtnText: { color: '#004E92', fontSize: 18, fontWeight: '800', zIndex: 1 },
+  sendBtnText: { color: '#fff', fontSize: 18, fontWeight: '800', zIndex: 1 },
 });
 
 
@@ -781,20 +780,19 @@ const nb = StyleSheet.create({
   },
   btn: {
     width: 36, height: 36, borderRadius: 18,
-    backgroundColor: 'rgba(255,255,255,0.22)',
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.55)',
+    backgroundColor: 'rgba(255,255,255,0.18)',
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.42)',
     alignItems: 'center', justifyContent: 'center',
     overflow: 'hidden',
-    shadowColor: '#001840', shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.10, shadowRadius: 2, elevation: 1,
   },
   btnActive: {
-    borderColor: '#FFD700',
-    shadowColor: '#FFA500',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.65,
-    shadowRadius: 8,
-    elevation: 5,
+    backgroundColor: 'rgba(255,255,255,0.94)',
+    borderColor: 'rgba(255,255,255,0.95)',
+    shadowColor: '#003070',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.18,
+    shadowRadius: 6,
+    elevation: 4,
   },
   btnGloss: {
     position: 'absolute', top: 0, left: 0, right: 0, height: '44%',
@@ -803,7 +801,7 @@ const nb = StyleSheet.create({
   },
   btnIcon: { fontSize: 18, zIndex: 1 },
 
-  label:      { fontSize: 10, fontWeight: '700', color: 'rgba(0,60,120,0.58)' },
+  label:      { fontSize: 10, fontWeight: '600', color: 'rgba(0,60,120,0.52)' },
   labelActive:{ fontSize: 10, fontWeight: '900', color: '#003F80' },
 });
 
