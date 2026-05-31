@@ -24,19 +24,23 @@ export class MeshRouter {
     this.transport.onPacketReceived = null;
   }
 
-  sendGroupInvite(group) {
-    const packet = createPacket({
-      from:    this.identity.nickname,
-      fromId:  this.identity.pubkey,
-      to:      'all',
-      toId:    'all',
-      body:    JSON.stringify(group),
-      type:    'group_invite',
-      groupId: group.groupId,
-    });
-    console.log(TAG, 'group_invite broadcast for', group.name, '— members:', group.members.length);
-    this.seen.set(packet.id, Date.now());
-    this.transport.sendPacket(packet);
+  async sendGroupInvite(group, contacts) {
+    // Minimal body — just what the invitee needs to join. Full member list is
+    // too large for a BLE GATT write when there are 2+ members.
+    const body = JSON.stringify({ groupId: group.groupId, name: group.name, createdAt: group.createdAt });
+    for (const contact of contacts) {
+      const packet = createPacket({
+        from:   this.identity.nickname,
+        fromId: this.identity.pubkey,
+        to:     contact.nickname,
+        toId:   contact.pubkey,
+        body,
+        type:   'group_invite',
+      });
+      console.log(TAG, 'group_invite →', contact.nickname, 'for', group.name);
+      this.seen.set(packet.id, Date.now());
+      await this.transport.sendPacket(packet); // await so writes don't collide
+    }
   }
 
   sendGroupMessage(group, body) {
@@ -155,21 +159,24 @@ export class MeshRouter {
 
     const isBroadcast = packet.toId === 'all';
 
-    if (packet.type === 'group_invite' && isBroadcast) {
-      // Broadcast invite — check if my pubkey is in the member list
+    if (packet.type === 'group_invite' && isForMe) {
+      // Unicast invite with minimal body { groupId, name, createdAt }
+      console.log(TAG, 'group_invite from', packet.from);
       try {
-        const group    = JSON.parse(packet.body);
-        const isMember  = group.groupId && group.name && group.members &&
-                          group.members.some(m => m.pubkey === this.identity.pubkey);
-        const isCreator = packet.fromId === this.identity.pubkey;
-        if (isMember && !isCreator) {
-          console.log(TAG, 'group_invite — I am a member of', group.name);
+        const parsed = JSON.parse(packet.body);
+        if (parsed.groupId && parsed.name) {
+          const group = {
+            groupId:   parsed.groupId,
+            name:      parsed.name,
+            members:   [{ nickname: packet.from, pubkey: packet.fromId }],
+            createdAt: parsed.createdAt ?? Date.now(),
+          };
           this.onGroupInvite(group);
         }
       } catch (e) {
         console.warn(TAG, 'group_invite parse failed:', e.message);
       }
-      // Fall through to relay — don't call onMessageForMe
+      return; // consume — relay not needed once delivered to the right device
     } else if (isForMe || isBroadcast) {
       console.log(TAG, isBroadcast ? 'broadcast for me' : 'direct message for me',
         '— from:', packet.from);

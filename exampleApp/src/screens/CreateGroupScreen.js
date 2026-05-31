@@ -49,7 +49,7 @@ export function CreateGroupScreen({ navigation }) {
       );
     }
 
-    state.router.sendGroupInvite(group);
+    state.router.sendGroupInvite(group, selectedContacts);
 
     navigation.replace('GroupChat', { group });
   };
